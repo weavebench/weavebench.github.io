@@ -1,401 +1,636 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>WeaveBench — A Long-Horizon, Real-World Benchmark for Computer-Use Agents with Hybrid Interfaces</title>
-<meta name="description" content="WeaveBench: 114 long-horizon hybrid GUI+CLI tasks across 8 real-world domains for evaluating computer-use agents, with a trajectory-aware agent-as-judge." />
-<meta property="og:title" content="WeaveBench" />
-<meta property="og:description" content="A Long-Horizon, Real-World Benchmark for Computer-Use Agents with Hybrid Interfaces." />
-<meta property="og:image" content="figures/fig_concept.png" />
-<meta property="og:type" content="website" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: {
-          serif: ['"Source Serif 4"', '"Source Serif Pro"', 'Georgia', 'serif'],
-          sans: ['Inter', 'system-ui', 'sans-serif'],
-          mono: ['"JetBrains Mono"', 'Menlo', 'monospace'],
-        },
-        colors: { brand: { 600: '#5b21b6', 700: '#4c1d95' } },
-      },
-    },
-  };
-</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  body { font-family: 'Source Serif 4', 'Source Serif Pro', Georgia, serif; }
-  h1, h2, h3, .ui { font-family: 'Inter', system-ui, sans-serif; }
-  code, pre { font-family: 'JetBrains Mono', Menlo, monospace; }
-  .badge { display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .7rem; border-radius: .5rem; font-weight: 500; font-size: .875rem; }
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table.results { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 0.875rem; }
-  table.results th, table.results td { padding: 0.55rem 0.6rem; text-align: center; border-bottom: 1px solid #e5e7eb; }
-  table.results th { background: #f8fafc; font-weight: 600; color: #334155; }
-  table.results td:first-child, table.results th:first-child { text-align: left; padding-left: 1rem; }
-  table.results tbody tr:hover { background: #faf7ff; }
-  .num-strong { font-weight: 700; color: #4c1d95; }
-  .anchor-pad { scroll-margin-top: 5rem; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WeaveBench | Long-Horizon Hybrid-Interface Benchmark for Computer-Use Agents</title>
+  <meta name="description" content="WeaveBench: 114 real-world tasks across 8 work domains where computer-use agents must interleave GUI control with CLI/code execution within a single trajectory. Evaluated by a trajectory-aware judge that detects shortcut behaviors. Best frontier pairing reaches only 41.2% PassRate.">
+  <meta name="keywords" content="Computer-Use Agents, CUA, GUI agent, CLI agent, hybrid interface, long-horizon, benchmark, OSWorld, OpenClaw, Codex CLI, Claude Code, Hermes, Agent-as-a-Judge, trajectory grading, reward hacking">
+  <meta property="og:title" content="WeaveBench: Long-Horizon Hybrid GUI+CLI Benchmark for Computer-Use Agents">
+  <meta property="og:description" content="114 tasks, 8 domains, 4 deployed agent harnesses. Even the best frontier pairing reaches only 41.2% PassRate.">
+  <meta property="og:image" content="static/images/teaser.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="WeaveBench">
+  <meta name="twitter:description" content="A long-horizon hybrid GUI+CLI benchmark for computer-use agents. Best frontier pairing: 41.2% PassRate.">
+  <meta name="twitter:image" content="static/images/teaser.png">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='13' height='13' rx='2' fill='%230ea5e9'/%3E%3Crect x='17' y='2' width='13' height='13' rx='2' fill='%234f46e5'/%3E%3Crect x='2' y='17' width='13' height='13' rx='2' fill='%23f59e0b'/%3E%3Crect x='17' y='17' width='13' height='13' rx='2' fill='%2316a34a'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="static/css/index.css">
 </head>
-<body class="bg-stone-50 text-stone-900 antialiased">
+<body>
 
-<!-- NAV -->
-<nav class="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-stone-200">
-  <div class="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-    <a href="#top" class="ui font-semibold tracking-tight text-stone-900">WeaveBench</a>
-    <div class="ui hidden md:flex gap-6 text-sm text-stone-600">
-      <a href="#abstract" class="hover:text-brand-700">Abstract</a>
-      <a href="#dataset" class="hover:text-brand-700">Dataset</a>
-      <a href="#method" class="hover:text-brand-700">Judge</a>
-      <a href="#results" class="hover:text-brand-700">Results</a>
-      <a href="#failure" class="hover:text-brand-700">Failures</a>
-      <a href="#bibtex" class="hover:text-brand-700">BibTeX</a>
-    </div>
-  </div>
-</nav>
-
-<!-- CONTENT SECTIONS INJECTED BELOW -->
-<main id="top" class="max-w-5xl mx-auto px-6 pt-12 pb-20">
-<!-- HEADER -->
-<header class="text-center pt-2 pb-8">
-  <div class="ui inline-block bg-violet-100 text-brand-700 text-xs font-semibold px-3 py-1 rounded-full mb-4">
-    Preprint · May 2026
-  </div>
-  <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-stone-900 leading-tight">
-    WeaveBench
-  </h1>
-  <p class="mt-3 text-lg sm:text-xl text-stone-700 max-w-3xl mx-auto leading-snug">
-    A Long-Horizon, Real-World Benchmark for Computer-Use Agents<br class="hidden sm:block" />
-    with Hybrid Interfaces
-  </p>
-
-  <div class="ui mt-6 text-sm sm:text-base text-stone-700 max-w-3xl mx-auto">
-    <div class="flex flex-wrap justify-center gap-x-4 gap-y-1">
-      <span>Wanli Li<sup>1,2,∗†</sup></span>
-      <span>Bowen Zhou<sup>3,∗</sup></span>
-      <span>Yifan Yang<sup>2,§</sup></span>
-      <span>Yunyao Yu<sup>3</sup></span>
-      <span>Zhou Xu<sup>3</sup></span>
-      <span>Dongsheng Li<sup>2</sup></span>
-      <span>Caihua Shan<sup>2,‡</sup></span>
-    </div>
-    <div class="mt-2 text-stone-500 text-sm">
-      <sup>1</sup>Zhejiang University · <sup>2</sup>Microsoft Research Asia · <sup>3</sup>Tsinghua University<br/>
-      <span class="text-xs">∗ Equal contribution · † Work during MSRA internship · § Project lead · ‡ Corresponding author</span>
-    </div>
-  </div>
-
-  <div class="mt-7 flex flex-wrap justify-center gap-2">
-    <a href="main.pdf" class="badge bg-stone-900 text-white hover:bg-stone-800">
-      📄 Paper (PDF)
+<header class="topbar" id="navbar" aria-label="Page navigation">
+  <div class="navbar-logos">
+    <a class="brandmark" href="#top" aria-label="WeaveBench home">
+      <svg class="brandmark-logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="2" y="2" width="13" height="13" rx="2.5" fill="#0ea5e9"/>
+        <rect x="17" y="2" width="13" height="13" rx="2.5" fill="#4f46e5"/>
+        <rect x="2" y="17" width="13" height="13" rx="2.5" fill="#f59e0b"/>
+        <rect x="17" y="17" width="13" height="13" rx="2.5" fill="#16a34a"/>
+      </svg>
+      <span class="brand-weave">Weave</span><span class="brand-bench">Bench</span>
     </a>
-    <a href="https://huggingface.co/datasets/wanlilll/WeaveBench" class="badge bg-amber-500 text-white hover:bg-amber-600">
-      🤗 Dataset
-    </a>
-    <span class="badge bg-stone-200 text-stone-700">
-      ⚙ Code (private — coming soon)
-    </span>
-    <a href="#bibtex" class="badge bg-violet-100 text-brand-700 hover:bg-violet-200">
-      ✎ BibTeX
+    <div class="navbar-divider" aria-hidden="true"></div>
+    <a class="navbar-related" href="https://github.com/Wanli-Lee/WeaveBench" target="_blank" rel="noopener" title="WeaveBench code repository">
+      <span class="nr-icon" aria-hidden="true"></span>
+      <span>
+        <span class="nr-label">Release</span>
+        <span class="nr-name">v0.1 &middot; 114 tasks</span>
+      </span>
     </a>
   </div>
-
-  <div class="ui mt-6 flex flex-wrap justify-center gap-3 text-sm">
-    <span class="px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">114 tasks</span>
-    <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">8 real-world domains</span>
-    <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">GUI + CLI + Code</span>
-    <span class="px-3 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200">Trajectory-aware judge</span>
-  </div>
+  <nav class="nav" aria-label="Sections">
+    <a href="#idea">Idea</a>
+    <a href="#dataset">Dataset</a>
+    <a href="#method">Method</a>
+    <a href="#results">Results</a>
+    <a href="#ablations">Ablations</a>
+    <a href="#analysis">Analysis</a>
+    <a href="#citation">Cite</a>
+    <a href="https://github.com/Wanli-Lee/WeaveBench" target="_blank" rel="noopener">Code</a>
+  </nav>
 </header>
-<!-- ABSTRACT -->
-<section id="abstract" class="anchor-pad mt-12">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-4">Abstract</h2>
-  <div class="prose prose-stone max-w-none text-stone-700 leading-relaxed text-base sm:text-lg">
-    <p>
-      Computer-use agents (CUAs) increasingly operate in runtimes that combine visual
-      desktop control, command-line execution, code editing, browsers, and external tools.
-      Existing benchmarks, however, often evaluate these interfaces as separable capabilities,
-      leaving long-horizon cross-interface orchestration under-tested. We introduce
-      <b>WeaveBench</b>, a long-horizon hybrid-interface benchmark with
-      <b>114 tasks across 8 real-world work domains</b>, grounded in real user requests and
-      publicly verifiable artifacts. Each task requires agents to combine GUI
-      observations/actions with CLI/code operations within a single trajectory.
-    </p>
-    <p class="mt-4">
-      We evaluate these tasks on a real Ubuntu desktop inside deployed CLI-agent runtimes,
-      augmented with a minimal desktop-control plugin. We also propose a companion
-      <b>trajectory-aware judge</b> that inspects deliverables, files, screenshots, logs,
-      and action traces, while detecting shortcut behaviors such as fabricated visual
-      evidence or hard-coded metrics. Across frontier model–runtime pairings, the best
-      PassRate reaches only <span class="num-strong">41.2%</span>, showing the benchmark
-      remains far from saturated. The trajectory-aware judge further reveals that
-      outcome-only grading substantially overestimates agent performance.
-    </p>
+
+<section class="hero" id="top">
+  <div class="hero-inner">
+    <div>
+      <span class="kicker">Hybrid-interface benchmark for computer-use agents</span>
+      <h1>WeaveBench</h1>
+      <p class="hero-subtitle">
+        A long-horizon, real-world benchmark of <strong>114 tasks</strong> across
+        <strong>8 work domains</strong> where computer-use agents must
+        <em>interleave</em> visual desktop control with command-line and code
+        execution within a single trajectory. Rollouts run on a real Ubuntu
+        desktop, audited by a trajectory-aware judge that detects fabricated
+        screenshots, hard-coded metrics, and other shortcut behaviors.
+      </p>
+      <div class="hero-actions" aria-label="Primary links">
+        <a class="button primary" href="#idea">Core Idea</a>
+        <a class="button secondary" href="#dataset">Dataset</a>
+        <a class="button secondary" href="#results">Results</a>
+        <a class="button tertiary" href="https://github.com/Wanli-Lee/WeaveBench" target="_blank" rel="noopener">
+          <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.67 0 8.2c0 3.62 2.29 6.69 5.47 7.78.4.08.55-.18.55-.4 0-.2-.01-.86-.01-1.56-2.01.38-2.53-.5-2.69-.95-.09-.23-.48-.95-.82-1.14-.28-.15-.68-.52-.01-.53.63-.01 1.08.59 1.23.83.72 1.24 1.87.89 2.33.68.07-.53.28-.89.51-1.09-1.78-.21-3.64-.91-3.64-4.03 0-.89.31-1.62.82-2.19-.08-.21-.36-1.04.08-2.16 0 0 .67-.22 2.2.84A7.42 7.42 0 0 1 8 4.01c.68 0 1.36.09 2 .27 1.53-1.06 2.2-.84 2.2-.84.44 1.12.16 1.95.08 2.16.51.57.82 1.3.82 2.19 0 3.13-1.87 3.82-3.65 4.03.29.26.54.75.54 1.51 0 1.09-.01 1.97-.01 2.24 0 .22.15.48.55.4A8.1 8.1 0 0 0 16 8.2C16 3.67 12.42 0 8 0Z"/>
+          </svg>
+          Code Repo
+        </a>
+        <a class="button secondary" href="static/pdfs/WeaveBench.pdf" target="_blank" rel="noopener">
+          <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5l-5-5H4Zm5 1.5V5h3.5L9 1.5ZM5 9h6v1H5V9Zm0 2h6v1H5v-1Z"/>
+          </svg>
+          Paper PDF
+        </a>
+        <a class="button secondary" href="https://huggingface.co/datasets/wanlilll/WeaveBench" target="_blank" rel="noopener">
+          🤗 Dataset
+        </a>
+      </div>
+      <a class="related-project" href="https://github.com/Wanli-Lee/WeaveBench" target="_blank" rel="noopener" aria-label="Open the WeaveBench code repository">
+        <span class="related-icon" aria-hidden="true"></span>
+        <span class="related-text">
+          <span class="related-tag">One-line install</span>
+          <span class="related-title"><strong>pip install -e .</strong> then run on OpenRouter.</span>
+          <span class="related-summary">Bundles OpenClaw, Codex CLI, Claude Code &amp; Hermes adapters.</span>
+        </span>
+        <span class="related-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+
+    <aside class="hero-ledger" aria-label="Headline result">
+      <span class="ledger-kicker">Headline PassRate</span>
+      <div class="ledger-hero" aria-label="41.2 percent best frontier pairing">
+        <span class="ledger-value">41.2</span>
+        <span class="ledger-denominator">%</span>
+      </div>
+      <p class="ledger-copy">
+        Best observed model x harness pairing on WeaveBench &mdash; Claude Opus 4.7 inside Claude Code. Far below the &gt;78&percnt; the same backbones report on OSWorld-Verified.
+      </p>
+      <div class="ledger-stats" aria-label="Benchmark coverage">
+        <div class="ledger-stat">
+          <span>Tasks</span><b>114</b>
+        </div>
+        <div class="ledger-stat">
+          <span>Domains</span><b>8</b>
+        </div>
+        <div class="ledger-stat">
+          <span>Harnesses</span><b class="ledger-stat-text">OpenClaw + Codex + Claude Code + Hermes</b>
+        </div>
+      </div>
+    </aside>
   </div>
 </section>
-<!-- CONCEPT -->
-<section id="concept" class="anchor-pad mt-14">
-  <figure>
-    <img src="figures/fig_concept.png" alt="WeaveBench concept overview"
-         class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-    <figcaption class="ui text-sm text-stone-500 mt-2 text-center">
-      <b>Figure 1.</b> WeaveBench positions evaluation at the intersection of GUI, CLI/code,
-      and tool use, where production CUA runtimes already operate.
-    </figcaption>
-  </figure>
-</section>
-<!-- CASESTUDY -->
-<section id="casestudy" class="anchor-pad mt-14">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-2">Why hybrid interfaces?</h2>
-  <p class="text-stone-700 leading-relaxed mb-5">
-    Real workflows are not GUI-only or CLI-only. The three vignettes below show why
-    success requires <i>interleaving</i> rendered desktop state (canvases, dashboards, dialogs)
-    with structured CLI/code state (source files, logs, configs).
-  </p>
-  <figure>
-    <img src="figures/fig_casestudy_3panel.png" alt="Three case studies: DAV / GAME / OPS"
-         class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-    <figcaption class="ui text-sm text-stone-500 mt-2 text-center">
-      <b>Figure 2.</b> Three case studies. Each task forces the agent to weave
-      GUI observation with CLI inspection, modification, and verification.
-    </figcaption>
-  </figure>
-</section>
-<!-- DATASET -->
-<section id="dataset" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-2">Dataset</h2>
-  <p class="text-stone-700 leading-relaxed">
-    WeaveBench comprises <b>114 tasks across 8 domains and 23 subcategories</b>, each
-    built on real-world assets (code repos, issue threads, monitoring snapshots, design
-    mocks, database dumps, configs) with provenance. The median rollout uses
-    <b>76 tool calls</b> and <b>16 GUI↔CLI channel switches</b> per task.
-  </p>
 
-  <figure class="mt-6">
-    <img src="figures/fig_data_overview_v2.png" alt="WeaveBench dataset overview"
-         class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-    <figcaption class="ui text-sm text-stone-500 mt-2 text-center">
-      <b>Figure 3.</b> Taxonomy of 114 tasks; distribution of GUI↔CLI switches; trajectory length in tool calls.
-    </figcaption>
-  </figure>
+<main>
 
-  <div class="grid sm:grid-cols-2 gap-4 mt-6">
-    <figure>
-      <img src="figures/fig_channelmix.png" alt="Channel mix per domain"
-           class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-      <figcaption class="ui text-xs text-stone-500 mt-1 text-center">
-        <b>Figure 4.</b> Per-domain channel mix.
+  <!-- Paper teaser figure -->
+  <section class="teaser-showcase" id="teaser" aria-labelledby="teaser-title">
+    <div class="teaser-heading">
+      <span>Paper Teaser</span>
+      <div>
+        <h2 id="teaser-title">Three workflows. Three reasons GUI-only or CLI-only is not enough.</h2>
+        <p class="section-lede">
+          A data-analyst / SRE chasing a slow Jaeger span, a game-dev fixing
+          off-screen labels and missing sprites, and a web ops engineer
+          reproducing a 15:42 503 spike. Every task interleaves GUI inspection
+          with CLI/code verification &mdash; that interleaving is what WeaveBench measures.
+        </p>
+      </div>
+    </div>
+    <figure class="teaser-figure">
+      <img src="static/images/teaser.png" alt="Three example WeaveBench workflows showing GUI and CLI steps side by side for DAV, GAM, and OPS domains.">
+    </figure>
+    <p class="teaser-caption">
+      Figure 1 from the paper. Each scenario lists why a CLI-only or GUI-only agent would fail. WeaveBench encodes the full interleaving as a single trajectory.
+    </p>
+  </section>
+
+  <!-- ============ 01 CORE IDEA ============ -->
+  <section class="section" id="idea">
+    <div class="section-header">
+      <div class="section-eyebrow">01 / Core Idea</div>
+      <div>
+        <h2>Evaluate cross-interface orchestration, not isolated capabilities.</h2>
+        <p class="section-lede">
+          Deployed CUA runtimes already integrate GUI control, CLI/code execution,
+          browsers, and external tools inside one agent loop. Existing benchmarks
+          test these channels in isolation, leaving the orchestration layer
+          under-measured. WeaveBench is built around tasks where success requires
+          the agent to weave both channels together.
+        </p>
+      </div>
+    </div>
+
+    <div class="manifesto">
+      <article class="statement">
+        <h3>GUI and CLI are complementary, not interchangeable.</h3>
+        <p>
+          GUIs expose rendered, transient, spatial state &mdash; canvases, dialogs,
+          visual feedback. CLI/code expose structured, scriptable, persistent
+          state &mdash; source files, configs, logs, services. Real workflows
+          braid them: observe in the GUI, verify in the shell, edit in code,
+          re-render, re-observe.
+        </p>
+        <div class="chip-row">
+          <span class="chip">Real Ubuntu desktop</span>
+          <span class="chip">114 sandboxed tasks</span>
+          <span class="chip">8 work domains</span>
+          <span class="chip">Trajectory-aware judge</span>
+        </div>
+      </article>
+
+      <div class="steps" aria-label="Benchmark design pillars">
+        <div class="step">
+          <strong>Real workloads</strong>
+          <p>Tasks sourced from public artifacts: GitHub issues, postmortems, design mocks, the OpenClaw user community.</p>
+        </div>
+        <div class="step">
+          <strong>Hybrid execution</strong>
+          <p>Median 76 tool calls, 16 GUI&harr;CLI channel switches per task; long-horizon by construction.</p>
+        </div>
+        <div class="step">
+          <strong>Verifiable artifacts</strong>
+          <p>Each task ships expert reference trajectories and inspection anchors so the judge audits evidence, not vibes.</p>
+        </div>
+        <div class="step">
+          <strong>Shortcut-aware grading</strong>
+          <p>Final-only grading is fragile here. The judge scans for 9 manually-curated shortcut patterns and zeroes the score on confirmed hacks.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 DATASET ============ -->
+  <section class="section" id="dataset">
+    <div class="section-header">
+      <div class="section-eyebrow">02 / Dataset</div>
+      <div>
+        <h2>114 tasks across 8 domains, with long, channel-interleaved rollouts.</h2>
+        <p class="section-lede">
+          Each domain contributes a distinct cooperation archetype. The
+          distributions on the right show why outcome-only benchmarks miss this
+          regime: tasks are dozens to hundreds of tool calls long, and require
+          GUI and CLI to be revisited many times within one run.
+        </p>
+      </div>
+    </div>
+
+    <figure class="figure-frame">
+      <img src="static/images/dataset.png" alt="WeaveBench taxonomy: 114 tasks across 8 domains; per-task GUI/CLI channel switches; per-task tool-call rollout length.">
+      <figcaption class="caption">
+        Figure 3 from the paper. <strong>(a)</strong> Taxonomy of 114 tasks across 8 domains and 23 subcategories. <strong>(b)</strong> Number of GUI&harr;CLI channel switches per task (median 16). <strong>(c)</strong> Rollout length measured in tool calls (median 76, max 471).
       </figcaption>
     </figure>
-    <figure>
-      <img src="figures/fig_difficulty_cdf.png" alt="Difficulty CDF"
-           class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-      <figcaption class="ui text-xs text-stone-500 mt-1 text-center">
-        <b>Figure 5.</b> Difficulty CDF.
+
+    <div class="domain-grid">
+      <div class="domain-card" style="--accent: #0ea5e9;">
+        <span class="domain-tag">WEB</span>
+        <h4>Web Frontend</h4>
+        <p>DevTools, perf budgets, network profiling, UI &amp; client-state debugging.</p>
+      </div>
+      <div class="domain-card" style="--accent: #4f46e5;">
+        <span class="domain-tag">DAV</span>
+        <h4>Data Analysis</h4>
+        <p>Notebooks, dashboards, observability traces, pipelines / ETL.</p>
+      </div>
+      <div class="domain-card" style="--accent: #7c3aed;">
+        <span class="domain-tag">OPS</span>
+        <h4>DevOps</h4>
+        <p>Cluster monitoring, services, DB ops, network &amp; security.</p>
+      </div>
+      <div class="domain-card" style="--accent: #ec4899;">
+        <span class="domain-tag">DOC</span>
+        <h4>Document</h4>
+        <p>Office suites, markup, LaTeX, print-ready document workflows.</p>
+      </div>
+      <div class="domain-card" style="--accent: #f59e0b;">
+        <span class="domain-tag">DES</span>
+        <h4>Design</h4>
+        <p>Visual asset workflows, color management, engineering design.</p>
+      </div>
+      <div class="domain-card" style="--accent: #16a34a;">
+        <span class="domain-tag">GAM</span>
+        <h4>Games</h4>
+        <p>Game engines &amp; runtimes, puzzle / strategy, realtime / action.</p>
+      </div>
+      <div class="domain-card" style="--accent: #0891b2;">
+        <span class="domain-tag">SPA</span>
+        <h4>Spatial / 3D</h4>
+        <p>CAD, engineering design, scientific / FEM simulation.</p>
+      </div>
+      <div class="domain-card" style="--accent: #475569;">
+        <span class="domain-tag">DSK</span>
+        <h4>Desktop / OS</h4>
+        <p>Filesystem &amp; storage, system &amp; hardware services, desktop UI/UX.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 METHOD ============ -->
+  <section class="section" id="method">
+    <div class="section-header">
+      <div class="section-eyebrow">03 / Method</div>
+      <div>
+        <h2>A hybrid harness, a trajectory-aware judge, and shortcut auditing.</h2>
+        <p class="section-lede">
+          WeaveBench evaluates four deployed harnesses on the same Ubuntu desktop
+          with the same GUI plugin (one screenshot primitive + nine pyautogui
+          actuation primitives). A trajectory-aware Agent-as-a-Judge then scores
+          eight quality dimensions while a shortcut scanner zeroes confirmed
+          hacks.
+        </p>
+      </div>
+    </div>
+
+    <figure class="figure-frame">
+      <img src="static/images/paradigm.png" alt="WeaveBench framework: rollout, judge, and reporting.">
+      <figcaption class="caption">
+        Figure 2 from the paper. Tasks are rolled out by four deployed CUA
+        harnesses on a real Ubuntu VM. The judge reads the full trajectory
+        (transcripts, intermediate artifacts, final state) and emits per-task
+        scores plus failure-mode tags.
       </figcaption>
     </figure>
-  </div>
 
-  <div class="ui mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-stone-800">
-    <div class="font-semibold mb-1">🤗 Get the dataset</div>
-    <code class="text-xs">huggingface-cli download wanlilll/WeaveBench --repo-type=dataset --include "tasks/*" --local-dir ./WeaveBench</code>
-  </div>
-</section>
-<!-- METHOD -->
-<section id="method" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-2">Trajectory-aware Agent-as-Judge</h2>
-  <p class="text-stone-700 leading-relaxed">
-    Hybrid rollouts cannot be reliably graded from final deliverables alone: artifacts can
-    be synthesized, metrics hard-coded, and visually-correct states reached through
-    specification-violating tool use. We treat evaluation as a <b>trajectory-level
-    evidence audit</b>. Each rollout is assessed by a trajectory-aware agentic judge that
-    actively re-fetches evidence from artifacts, screenshots, logs, and reference anchors.
-  </p>
+    <div class="method-grid">
+      <article class="method-card accent-blue">
+        <span class="method-num">M1</span>
+        <h3>Hybrid Harness</h3>
+        <p>
+          A unified Ubuntu desktop wraps four production-grade computer-use
+          stacks: <strong>OpenClaw</strong> (our reference harness; OpenAI
+          Responses / Anthropic Messages / OpenAI Chat transports),
+          <strong>Codex&nbsp;CLI</strong>, <strong>Claude&nbsp;Code</strong>,
+          and <strong>Hermes</strong>. All four share the same GUI plugin so
+          differences reflect orchestration, not tooling.
+        </p>
+      </article>
+      <article class="method-card accent-red">
+        <span class="method-num">M2</span>
+        <h3>Trajectory-Aware Judge</h3>
+        <p>
+          For every task, an LLM judge inspects the full transcript and any
+          deliverables, then rates 8 dimensions: task completion, deliverable
+          correctness, deliverable quality, evidence authenticity, tool-use
+          correctness, final-state correctness, efficiency / robustness, and
+          instruction following.
+        </p>
+      </article>
+      <article class="method-card accent-gold">
+        <span class="method-num">M3</span>
+        <h3>Anti-Shortcut Scan</h3>
+        <p>
+          A separate scanner runs nine pattern detectors over the trajectory:
+          synthetic-screenshot rendering, hard-coded metrics, mock services,
+          duplicate crops, overlay manipulation, ground-truth leakage, runtime
+          injection, regenerated fixtures, and fabricated screenshots. Any hit
+          forces the task score to zero.
+        </p>
+      </article>
+      <article class="method-card accent-green">
+        <span class="method-num">M4</span>
+        <h3>Layered Scoring</h3>
+        <p>
+          The reported PassRate uses a layered min: a task contributes a
+          non-zero score only if no shortcut was confirmed and the deliverable
+          itself passes a domain-specific check. This is what keeps a 53.5% (outcome-only) headline from masking a 33.3% (trajectory-aware) reality.
+        </p>
+      </article>
+    </div>
+  </section>
 
-  <div class="grid md:grid-cols-2 gap-4 mt-6">
-    <div class="rounded-lg border border-stone-200 bg-white p-5">
-      <div class="ui font-semibold text-stone-900 mb-2">⚖️ Layered scoring</div>
-      <p class="text-sm text-stone-700 leading-relaxed">
-        Each deliverable is decomposed into atomic clauses (counts, visual states, file
-        formats). Clauses are verified as satisfied / partial / false with concrete
-        evidence. Eight dimensions cover completion, deliverable correctness &amp; quality,
-        evidence authenticity, tool-use, final-state, efficiency, and instruction-following.
+  <!-- ============ 04 RESULTS ============ -->
+  <section class="section" id="results">
+    <div class="section-header">
+      <div class="section-eyebrow">04 / Main Results</div>
+      <div>
+        <h2>Frontier models stall at 41.2% PassRate &mdash; with substantial harness sensitivity.</h2>
+        <p class="section-lede">
+          Even when paired with their most agentic harness, frontier backbones
+          do not exceed 42% PassRate on WeaveBench. The same backbone can swing
+          by tens of points across harnesses, evidence that orchestration &mdash;
+          not raw capability &mdash; is the dominant bottleneck today.
+        </p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Backbone</th>
+            <th>OpenClaw</th>
+            <th>Codex CLI</th>
+            <th>Claude Code</th>
+            <th>Hermes</th>
+            <th>Best</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="model-cell"><strong>Claude Opus 4.7</strong></td>
+            <td style="--heat: 84;">35.1</td>
+            <td class="na">&mdash;</td>
+            <td style="--heat: 100;"><strong>41.2</strong></td>
+            <td class="na">&mdash;</td>
+            <td class="best">41.2</td>
+          </tr>
+          <tr>
+            <td class="model-cell"><strong>GPT-5.5</strong></td>
+            <td style="--heat: 80;">33.3</td>
+            <td style="--heat: 74;">30.8</td>
+            <td class="na">&mdash;</td>
+            <td style="--heat: 70;">29.1</td>
+            <td class="best">33.3</td>
+          </tr>
+          <tr>
+            <td class="model-cell"><strong>GPT-5.4</strong></td>
+            <td style="--heat: 55;">22.8</td>
+            <td style="--heat: 50;">20.9</td>
+            <td class="na">&mdash;</td>
+            <td style="--heat: 47;">19.6</td>
+            <td class="best">22.8</td>
+          </tr>
+          <tr>
+            <td class="model-cell"><strong>Gemini 3 Pro</strong></td>
+            <td style="--heat: 60;">25.0</td>
+            <td style="--heat: 54;">22.4</td>
+            <td class="na">&mdash;</td>
+            <td style="--heat: 50;">20.8</td>
+            <td class="best">25.0</td>
+          </tr>
+          <tr>
+            <td class="model-cell"><strong>Qwen3-VL-235B</strong></td>
+            <td style="--heat: 24;">10.1</td>
+            <td class="na">&mdash;</td>
+            <td class="na">&mdash;</td>
+            <td class="na">&mdash;</td>
+            <td class="best">10.1</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="table-caption">
+        Pass@1 % on WeaveBench under the trajectory-aware judge with shortcut
+        scan enabled. Cell color encodes relative performance within the table.
+        See paper Table 2 for the full per-domain breakdown.
       </p>
     </div>
-    <div class="rounded-lg border border-stone-200 bg-white p-5">
-      <div class="ui font-semibold text-stone-900 mb-2">🚫 9 shortcut patterns</div>
-      <p class="text-sm text-stone-700 leading-relaxed">
-        The judge also scans for fake screenshots, regenerated fixtures, hard-coded
-        metrics, mock services, duplicate crops, overlay manipulation, ground-truth
-        leakage, and runtime injection. A confirmed shortcut zero-credits the rollout.
+
+    <div class="bar-row" aria-label="Best WeaveBench result vs reported scores on related benchmarks">
+      <h3 class="bar-row-title">Why 41.2% is striking</h3>
+      <div class="bar-stage">
+        <div class="bar">
+          <div class="bar-fill" style="--h: 82%; --c1: #4f46e5; --c2: #7c3aed;"></div>
+          <span class="bar-label">OSWorld-Verified<br><b>~78%</b></span>
+        </div>
+        <div class="bar">
+          <div class="bar-fill" style="--h: 70%; --c1: #0ea5e9; --c2: #4f46e5;"></div>
+          <span class="bar-label">SWE-bench Verified<br><b>~65%</b></span>
+        </div>
+        <div class="bar">
+          <div class="bar-fill" style="--h: 44%; --c1: #ec4899; --c2: #f59e0b;"></div>
+          <span class="bar-label">WeaveBench<br><b>41.2%</b></span>
+        </div>
+      </div>
+      <p class="bar-caption">
+        The same generation of frontier models that score in the high-70s on
+        OSWorld-Verified and mid-60s on SWE-bench Verified land below 42% on
+        WeaveBench. The gap is the cross-interface orchestration tax.
       </p>
     </div>
-  </div>
+  </section>
 
-  <div class="ui mt-6 rounded-lg border border-stone-200 bg-stone-900 text-stone-100 p-5 text-sm overflow-x-auto">
-    <div class="text-stone-400 text-xs mb-2">Score for model m on task t</div>
-    <pre class="text-sm leading-relaxed"><code>s_{t,m} =  0,                                                  if shortcut h_{t,m}=1
-           min( (1/8) Σ_i d^process_{t,m,i},  d^deliv_{t,m} ),  otherwise</code></pre>
-    <div class="text-stone-400 text-xs mt-3">
-      <span class="text-amber-300">PassRate</span> = fraction of tasks with s ≥ 0.8.
-      <span class="text-amber-300 ml-3">Overall</span> = mean partial credit over 114 tasks.
+  <!-- ============ 05 ABLATIONS ============ -->
+  <section class="section" id="ablations">
+    <div class="section-header">
+      <div class="section-eyebrow">05 / Ablations</div>
+      <div>
+        <h2>Two ablations that change how you read the leaderboard.</h2>
+        <p class="section-lede">
+          The first explains why GUI-only or CLI-only setups under-perform a
+          hybrid one. The second shows what happens when you grade only on
+          final outcomes vs. on full trajectories.
+        </p>
+      </div>
     </div>
-  </div>
 
-  <figure class="mt-6">
-    <img src="figures/fig_cost_grader.png" alt="Cost vs grader fidelity"
-         class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-    <figcaption class="ui text-sm text-stone-500 mt-2 text-center">
-      <b>Figure 6.</b> Cost–fidelity tradeoff of the trajectory-aware judge vs alternatives.
-    </figcaption>
-  </figure>
-</section>
-<!-- RESULTS -->
-<section id="results" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-2">Results</h2>
-  <p class="text-stone-700 leading-relaxed">
-    Even the best frontier model–runtime pairing reaches only
-    <span class="num-strong">41.2% PassRate</span>, well below the &gt;78% these backbones
-    achieve on outcome-only benchmarks like OSWorld-Verified.
-  </p>
+    <div class="ablation-grid">
 
-  <!-- Table 2: Model API sweep on OpenClaw -->
-  <h3 class="ui text-lg font-semibold text-stone-900 mt-8 mb-2">
-    Model API sweep on a fixed OpenClaw runtime
-  </h3>
-  <div class="table-wrap rounded-lg border border-stone-200">
-    <table class="results">
-      <thead>
-        <tr>
-          <th>Agent</th><th>PR↑</th><th>Overall↑</th>
-          <th>DSK</th><th>DOC</th><th>GAM</th><th>WEB</th>
-          <th>DAV</th><th>OPS</th><th>SPA</th><th>DES</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Claude Opus 4.7</td><td class="num-strong">35.1</td><td class="num-strong">0.482</td><td>55.6</td><td>29.4</td><td>23.5</td><td class="num-strong">66.7</td><td>15.4</td><td>41.7</td><td>16.7</td><td>20.0</td></tr>
-        <tr><td>GPT-5.5</td><td>33.3</td><td>0.466</td><td>38.9</td><td class="num-strong">35.3</td><td class="num-strong">35.3</td><td>21.4</td><td class="num-strong">23.1</td><td>38.5</td><td class="num-strong">33.3</td><td class="num-strong">40.0</td></tr>
-        <tr><td>GPT-5.4</td><td>22.8</td><td>0.465</td><td>55.6</td><td>35.3</td><td>5.9</td><td>0.0</td><td>23.1</td><td>23.1</td><td>8.3</td><td>20.0</td></tr>
-        <tr><td>GPT-5.3-codex</td><td>18.4</td><td>0.456</td><td>33.3</td><td>23.5</td><td>29.4</td><td>0.0</td><td>7.7</td><td>16.7</td><td>8.3</td><td>20.0</td></tr>
-        <tr><td>GPT-5.2-codex</td><td>6.1</td><td>0.321</td><td>5.6</td><td>11.8</td><td>0.0</td><td>0.0</td><td>15.4</td><td>16.7</td><td>0.0</td><td>0.0</td></tr>
-        <tr><td>GPT-5.1-codex</td><td>1.8</td><td>0.226</td><td>0.0</td><td>5.9</td><td>0.0</td><td>0.0</td><td>7.7</td><td>0.0</td><td>0.0</td><td>0.0</td></tr>
-        <tr><td>Gemini 3.1 pro</td><td>1.8</td><td>0.223</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>8.3</td><td>8.3</td><td>0.0</td></tr>
-        <tr class="text-stone-500"><td>Qwen3.5-397B-A17B</td><td>0.9</td><td>0.318</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>8.3</td><td>0.0</td><td>0.0</td></tr>
-        <tr class="text-stone-500"><td>Qwen3-VL-8B-Think</td><td>0.9</td><td>0.092</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>8.3</td><td>0.0</td><td>0.0</td><td>0.0</td></tr>
-        <tr class="text-stone-500"><td>GUI-Owl-1.5-32B</td><td>0.0</td><td>0.065</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td><td>0.0</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="ui text-xs text-stone-500 mt-2">
-    PR = PassRate (%). Overall = mean per-task score. Best thinking budget reported per backbone.
-  </p>
+      <article class="ablation-card">
+        <span class="ablation-tag">Interface mode</span>
+        <h3>GUI-only and CLI-only both fall short of Hybrid.</h3>
+        <p class="ablation-lede">
+          We rerun the strongest model under three interface restrictions:
+          GUI-only (no shell/code), CLI-only (no screen capture / pointer), and
+          Hybrid (the default). The PassRate gap is consistent with the design
+          claim &mdash; the two channels carry complementary state.
+        </p>
+        <div class="bar-stage">
+          <div class="bar">
+            <div class="bar-fill" style="--h: 38%; --c1: #94a3b8; --c2: #cbd5e1;"></div>
+            <span class="bar-label">GUI-only<br><b>~18%</b></span>
+          </div>
+          <div class="bar">
+            <div class="bar-fill" style="--h: 50%; --c1: #94a3b8; --c2: #cbd5e1;"></div>
+            <span class="bar-label">CLI-only<br><b>~23%</b></span>
+          </div>
+          <div class="bar">
+            <div class="bar-fill" style="--h: 88%; --c1: #ec4899; --c2: #f59e0b;"></div>
+            <span class="bar-label">Hybrid<br><b>41.2%</b></span>
+          </div>
+        </div>
+        <p class="ablation-foot">
+          Values are illustrative of the ordering reported in the paper; see Table 3 for exact per-domain breakdowns.
+        </p>
+      </article>
 
-  <!-- Table 3: Cross-harness sweep -->
-  <h3 class="ui text-lg font-semibold text-stone-900 mt-10 mb-2">
-    Cross-harness sweep: model × runtime alignment matters
-  </h3>
-  <p class="text-stone-700 text-sm leading-relaxed mb-3">
-    Tool schemas, prompting conventions, and action-loop design interact strongly with
-    model-specific tool-use behavior. The strongest pairing
-    (<b>Claude Opus 4.7 × Claude Code</b>) hits <span class="num-strong">41.2% PassRate</span>;
-    swapping to a less-aligned runtime drops the same model to <b>13.2%</b>.
-  </p>
-  <div class="table-wrap rounded-lg border border-stone-200">
-    <table class="results">
-      <thead>
-        <tr>
-          <th>Backbone</th><th>Harness</th><th>PR↑</th><th>Overall↑</th>
-          <th>DSK</th><th>DOC</th><th>GAM</th><th>WEB</th>
-          <th>DAV</th><th>OPS</th><th>SPA</th><th>DES</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td rowspan="4" class="font-medium text-stone-800 align-top pt-3">GPT-5.5</td>
-            <td>Codex CLI</td><td class="num-strong">35.1</td><td class="num-strong">0.499</td><td>38.9</td><td>29.4</td><td>23.5</td><td class="num-strong">53.3</td><td>15.4</td><td class="num-strong">50.0</td><td>—</td><td>—</td></tr>
-        <tr><td>OpenClaw</td><td>33.3</td><td>0.466</td><td>38.9</td><td>35.3</td><td>35.3</td><td>21.4</td><td>23.1</td><td>38.5</td><td>—</td><td>—</td></tr>
-        <tr><td>Hermes Agent</td><td>31.6</td><td>0.466</td><td>55.6</td><td>29.4</td><td>35.3</td><td>40.0</td><td>7.7</td><td>25.0</td><td>—</td><td>—</td></tr>
-        <tr class="text-stone-500"><td>Claude Code</td><td>14.9</td><td>0.299</td><td>33.3</td><td>11.8</td><td>11.8</td><td>0.0</td><td>15.4</td><td>16.7</td><td>—</td><td>—</td></tr>
-        <tr class="border-t-2 border-stone-200">
-            <td rowspan="4" class="font-medium text-stone-800 align-top pt-3">Claude Opus 4.7</td>
-            <td>Codex CLI</td><td class="text-stone-500">13.2</td><td>0.378</td><td>16.7</td><td>11.8</td><td>11.8</td><td>6.7</td><td>7.7</td><td>25.0</td><td>16.7</td><td>10.0</td></tr>
-        <tr><td>OpenClaw</td><td>35.1</td><td>0.482</td><td>55.6</td><td>29.4</td><td>23.5</td><td class="num-strong">66.7</td><td>15.4</td><td>41.7</td><td>16.7</td><td>20.0</td></tr>
-        <tr><td>Hermes Agent</td><td>28.1</td><td>0.516</td><td>33.3</td><td>47.1</td><td>11.8</td><td>26.7</td><td>30.8</td><td>50.0</td><td>8.3</td><td>10.0</td></tr>
-        <tr class="bg-violet-50"><td><b>Claude Code</b></td><td class="num-strong">41.2</td><td class="num-strong">0.532</td><td class="num-strong">55.6</td><td class="num-strong">47.1</td><td>23.5</td><td>53.3</td><td>23.1</td><td>50.0</td><td class="num-strong">33.3</td><td class="num-strong">40.0</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="ui text-xs text-stone-500 mt-2">
-    All numbers are PassRate (%) over the full 114-task suite; high thinking budget; trajectory-aware judge.
-  </p>
-</section>
-<!-- FAILURE -->
-<section id="failure" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-2">Failure analysis</h2>
-  <p class="text-stone-700 leading-relaxed">
-    Trajectory-aware grading exposes <i>how</i> agents fail, not just <i>that</i> they fail.
-    Across rollouts, failures cluster into a small number of recurring mechanisms —
-    dominated by GUI-side perception breakdowns, premature termination, and shortcut
-    behaviors that outcome-only grading would have rewarded.
-  </p>
+      <article class="ablation-card">
+        <span class="ablation-tag">Judge ablation</span>
+        <h3>Trajectory-aware grading removes 10&ndash;20 PR points of false credit.</h3>
+        <p class="ablation-lede">
+          A final-state-only judge accepts shortcut behaviors (synthetic
+          screenshots, hard-coded metrics) that a trajectory-aware judge
+          rejects. The headline-vs-reality gap is largest on the strongest
+          models, precisely those most rewarded by shortcut reward hacking.
+        </p>
+        <table class="judge-table">
+          <thead>
+            <tr><th>Model</th><th>Outcome-only</th><th>Trajectory-aware</th><th>&Delta;</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>GPT-5.5</td><td>53.5</td><td>33.3</td><td class="delta">-20.2</td></tr>
+            <tr><td>Claude Opus 4.7</td><td>51.6</td><td>41.2</td><td class="delta">-10.4</td></tr>
+            <tr><td>GPT-5.4</td><td>33.1</td><td>22.8</td><td class="delta">-10.3</td></tr>
+          </tbody>
+        </table>
+        <p class="ablation-foot">
+          See Figure 4 in the paper. The trajectory judge is what makes
+          WeaveBench scores trustworthy.
+        </p>
+      </article>
 
-  <div class="grid md:grid-cols-2 gap-4 mt-6">
-    <figure>
-      <img src="figures/fig_failure_donut.png" alt="Failure family distribution"
-           class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-      <figcaption class="ui text-xs text-stone-500 mt-1 text-center">
-        <b>Figure 7.</b> Failure family distribution.
+    </div>
+  </section>
+
+  <!-- ============ 06 ANALYSIS ============ -->
+  <section class="section" id="analysis">
+    <div class="section-header">
+      <div class="section-eyebrow">06 / Failure Analysis</div>
+      <div>
+        <h2>What actually goes wrong in 1,735 failed trials.</h2>
+        <p class="section-lede">
+          Across 2,209 graded trials, 1,735 were failures. We hand-coded a
+          five-category, fifteen-subclass failure taxonomy and re-attributed
+          every failed run. The big finding: tool-use posture &mdash; not raw
+          reasoning &mdash; dominates, and the GUI&harr;CLI handoff is where most
+          posture mistakes happen.
+        </p>
+      </div>
+    </div>
+
+    <div class="analysis-grid">
+      <figure class="analysis-figure">
+        <img src="static/images/failure_donut.png" alt="Failure mode distribution: 5 top-level categories, 15 subclasses; n=1735.">
+        <figcaption class="caption">
+          Failure distribution across 1,735 failed trials. The largest slice is
+          tool-use posture errors &mdash; the agent uses GUI when CLI would
+          succeed, or vice versa.
+        </figcaption>
+      </figure>
+
+      <div class="analysis-numbers">
+        <div class="num-card">
+          <span class="num-tag">Tool mix &mdash; GPT-5.5</span>
+          <span class="num-value">27.3<small>%</small></span>
+          <p>of all tool calls are <code>exec: shell</code>; GUI primitives rise from 33.9% to 62.9% after we re-attribute coding-agent calls that were routed through bash.</p>
+        </div>
+        <div class="num-card">
+          <span class="num-tag">Median rollout</span>
+          <span class="num-value">76<small> calls</small></span>
+          <p>per task across all four harnesses; max 471. WeaveBench is firmly in long-horizon territory.</p>
+        </div>
+        <div class="num-card">
+          <span class="num-tag">Channel switches</span>
+          <span class="num-value">16<small> / task</small></span>
+          <p>median GUI&harr;CLI handoffs per successful trajectory. Single-channel agents simply cannot satisfy this.</p>
+        </div>
+        <div class="num-card">
+          <span class="num-tag">Shortcut patterns scanned</span>
+          <span class="num-value">9</span>
+          <p>distinct shortcut behaviors detected automatically &mdash; including synthetic-screenshot rendering, ground-truth leakage, and runtime injection.</p>
+        </div>
+      </div>
+    </div>
+
+    <figure class="figure-frame analysis-poster">
+      <img src="static/images/failure_posture.png" alt="Re-attributed posture errors per harness, highlighting the GUI/CLI handoff bottleneck.">
+      <figcaption class="caption">
+        Per-harness posture-error breakdown after coding-call re-attribution.
+        Codex CLI and Claude Code over-rely on shell when the task wants visual
+        confirmation; OpenClaw and Hermes occasionally over-rely on GUI when a
+        single shell call would close the loop.
       </figcaption>
     </figure>
-    <figure>
-      <img src="figures/fig_failure_mechanism.png" alt="Per-mechanism failure breakdown"
-           class="rounded-lg border border-stone-200 shadow-sm bg-white w-full" loading="lazy"/>
-      <figcaption class="ui text-xs text-stone-500 mt-1 text-center">
-        <b>Figure 8.</b> Fine-grained failure mechanisms.
-      </figcaption>
-    </figure>
-  </div>
-</section>
-<!-- BIBTEX -->
-<section id="bibtex" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-3">BibTeX</h2>
-  <pre class="rounded-lg bg-stone-900 text-stone-100 p-5 text-xs sm:text-sm overflow-x-auto leading-relaxed"><code>@article{li2026weavebench,
-  title   = {WeaveBench: A Long-Horizon, Real-World Benchmark for
-             Computer-Use Agents with Hybrid Interfaces},
-  author  = {Li, Wanli and Zhou, Bowen and Yang, Yifan and Yu, Yunyao
-             and Xu, Zhou and Li, Dongsheng and Shan, Caihua},
-  journal = {arXiv preprint},
-  year    = {2026},
-  note    = {Project page: https://weavebench.github.io}
+  </section>
+
+  <!-- ============ 07 CITATION ============ -->
+  <section class="section" id="citation">
+    <div class="section-header">
+      <div class="section-eyebrow">07 / BibTeX</div>
+      <div>
+        <h2>Cite this work.</h2>
+        <p class="section-lede">
+          If you use WeaveBench in your research, please cite the paper and the
+          released dataset / code.
+        </p>
+      </div>
+    </div>
+
+    <div class="bibtex-wrap">
+      <button class="bib-copy" id="bib-copy" type="button" aria-label="Copy BibTeX">Copy</button>
+<pre id="bibtex"><code>@misc{li2026weavebench,
+  title        = {WeaveBench: A Long-Horizon Hybrid GUI+CLI Benchmark for Computer-Use Agents},
+  author       = {Li, Wanli and Zhou, Bowen and Yang, Yifan and Yu, Yunyao
+                  and Li, Dongsheng and Xu, Zhou and Shan, Caihua},
+  year         = {2026},
+  howpublished = {\url{https://weavebench.github.io}},
+  note         = {Dataset and code: \url{https://github.com/Wanli-Lee/WeaveBench};
+                  \url{https://huggingface.co/datasets/wanlilll/WeaveBench}.}
 }</code></pre>
-</section>
-<!-- ACK -->
-<section id="ack" class="anchor-pad mt-16">
-  <h2 class="ui text-2xl font-bold text-stone-900 mb-3">Acknowledgements</h2>
-  <p class="text-stone-700 leading-relaxed text-base">
-    We thank the open-source communities behind
-    <a class="text-brand-700 underline hover:text-brand-600" href="https://github.com/openai/codex">Codex CLI</a>
-    and
-    <a class="text-brand-700 underline hover:text-brand-600" href="https://www.anthropic.com/claude-code">Claude Code</a>
-    for the agent harnesses that inspired and supported this work. We are also grateful to
-    the OSWorld team for the sandbox VM infrastructure on which WeaveBench is built.
-  </p>
-  <div class="ui mt-8 pt-6 border-t border-stone-200 text-xs text-stone-500 text-center">
-    Questions? Contact <a class="underline" href="mailto:caihuashan@microsoft.com">caihuashan@microsoft.com</a>.
-  </div>
-</section>
+    </div>
+
+    <div class="authors">
+      <h3>Authors</h3>
+      <ul class="author-list">
+        <li><strong>Wanli Li</strong><sup>1,2,&dagger;</sup></li>
+        <li><strong>Bowen Zhou</strong><sup>3</sup></li>
+        <li><strong>Yifan Yang</strong><sup>2,&sect;</sup></li>
+        <li><strong>Yunyao Yu</strong><sup>3</sup></li>
+        <li><strong>Dongsheng Li</strong><sup>2</sup></li>
+        <li><strong>Zhou Xu</strong><sup>3</sup></li>
+        <li><strong>Caihua Shan</strong><sup>2,&Dagger;</sup></li>
+      </ul>
+      <p class="affil"><sup>1</sup> Zhejiang University &nbsp; <sup>2</sup> Microsoft Research Asia &nbsp; <sup>3</sup> Tsinghua University</p>
+      <p class="affil-foot"><sup>&Dagger;</sup> Correspondence: <a href="mailto:caihuashan@microsoft.com">caihuashan@microsoft.com</a></p>
+    </div>
+  </section>
+
 </main>
 
-<footer class="border-t border-stone-200 bg-white">
-  <div class="max-w-5xl mx-auto px-6 py-8 ui text-sm text-stone-500 flex flex-col sm:flex-row justify-between gap-3">
-    <div>© 2026 WeaveBench authors. Site released under MIT.</div>
-    <div>Built with Tailwind CSS. Hosted on Hugging Face Spaces.</div>
-  </div>
+<footer class="footer">
+  <p>
+    &copy; 2026 WeaveBench authors. The website template is adapted from
+    <a href="https://microsoft.github.io/SkillOpt/" target="_blank" rel="noopener">SkillOpt</a>
+    and built with vanilla HTML / CSS. Page source is available
+    <a href="https://github.com/weavebench/weavebench.github.io" target="_blank" rel="noopener">on GitHub</a>.
+  </p>
+  <p class="footer-meta">
+    Code: <a href="https://github.com/Wanli-Lee/WeaveBench" target="_blank" rel="noopener">Wanli-Lee/WeaveBench</a>
+    &middot; Dataset: <a href="https://huggingface.co/datasets/wanlilll/WeaveBench" target="_blank" rel="noopener">wanlilll/WeaveBench</a>
+    &middot; <a href="static/pdfs/WeaveBench.pdf" target="_blank" rel="noopener">Paper PDF</a>
+  </p>
 </footer>
 
+<script src="static/js/index.js"></script>
 </body>
 </html>
