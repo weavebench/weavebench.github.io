@@ -22,7 +22,7 @@
   const revealTargets = document.querySelectorAll(
     'section.section, .teaser-showcase, .hero-ledger, .figure-frame, ' +
     '.method-card, .domain-card, .num-card, .ablation-card, .bibtex-wrap, .authors, ' +
-    '.judge-ablation, .failure-family, .fingerprint, .toolmix-figure'
+    '.judge-ablation, .failure-family, .fingerprint, .toolmix-figure, .headline-comparison'
   );
   revealTargets.forEach((el) => el.classList.add('reveal'));
 
