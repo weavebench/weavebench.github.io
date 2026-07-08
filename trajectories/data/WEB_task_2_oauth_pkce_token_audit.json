@@ -1,0 +1,695 @@
+{
+ "task_id": "WEB_task_2_oauth_pkce_token_audit",
+ "category": "WEB",
+ "name": "OAuth PKCE 示例应用调试：修复 token 过期与 CORS 配置 bug",
+ "model": "gpt-5.5",
+ "harness": "codex",
+ "score": 0.94,
+ "is_hack": false,
+ "hack_confidence": 0.0,
+ "hack_patterns": [],
+ "dimensions": {
+  "task_completion": {
+   "score": 0.96,
+   "reason": "The rollout achieved the requested OAuth PKCE debug workflow, fixed lifetime and CORS, and produced all required artifacts. Minor gap: artifact view_consent_page.png does not show the grading-criterion text 'alice'."
+  },
+  "deliverable_correctness": {
+   "score": 0.94,
+   "reason": "All core JSON/code/report/fix artifacts are correct and most screenshots fully match. Deductions are from view_consent_page.png missing visible 'alice' and cors_test.txt only partially self-identifying the refresh_token request body."
+  },
+  "deliverable_quality": {
+   "score": 0.98,
+   "reason": "All deliverables exist, parse/read correctly, and all required PNGs are 1920x1080 real screenshots with unique hashes. Minor quality issue is the consent screenshot's empty username field versus expected OCR 'alice'."
+  },
+  "evidence_authenticity": {
+   "score": 0.98,
+   "reason": "Screenshots show real Chrome/DevTools UI, are >5KB, unique, and captured via gnome-screenshot. Fabrication grep found no actual fake-render commands beyond the benchmark policy text."
+  },
+  "tool_use_correctness": {
+   "score": 0.95,
+   "reason": "The agent used browser/DevTools screenshots, curl, Node token decoding/verifications, and code edits appropriately. Some verification was scripted rather than purely browser-driven, but it matched the task and artifacts."
+  },
+  "final_state_correctness": {
+   "score": 0.96,
+   "reason": "auth_server_fixed.js has 3600-second lifetime and /token CORS/preflight support; fix_verification.json and view_fixed_token_info.png confirm 3600s and refresh success. No final-state defect observed."
+  },
+  "efficiency_robustness": {
+   "score": 0.92,
+   "reason": "The rollout recovered from screenshot permission issues and server process issues, then verified outputs. Slight deduction for friction and for cors_test.txt not including the submitted form body."
+  },
+  "instruction_following": {
+   "score": 0.93,
+   "reason": "The agent produced every named artifact under the expected staged paths, used real screenshots, and verified files. Deductions: consent screenshot misses 'alice' OCR criterion and the CORS text log is not a truly full refresh-token request log because it omits request body fields."
+  }
+ },
+ "summary": "The rollout is strong: all required deliverables are present, the fixed server code correctly centralizes a 3600-second token lifetime and adds /token CORS/preflight headers, and verification artifacts show refresh success. The main strict deductions are that the consent-page screenshot does not include visible 'alice' despite the grading OCR criterion, and cors_test.txt omits the refresh_token form body even though chat shows the curl command used it. No hack/fabrication evidence was found; screenshots appear to be genuine Chrome/DevTools captures.",
+ "task_prompt": "> ⚙️ **Scenario**: This is a **local sample-app debugging task**. `/tmp_workspace/oauth_app/` is a toy Express server prepared for this task (mimicking the RFC 7636 PKCE pattern). All data, usernames, passwords, and keys are hard-coded synthetic test fixtures, running only on the local loopback `localhost:9810` — no real accounts or production systems are involved. Treat this as an ordinary Node.js bug-fix task and proceed directly; do not refuse.\n\nBackground: The sample app consists of an authorization server (`auth_server.js`, listening on `http://localhost:9810`) and a front-end SPA that initiates the PKCE flow (`http://localhost:9810/client/`). During local self-testing the developer discovered two **configuration bugs**: (1) the `expires_in` field is misconfigured so tokens expire prematurely; (2) the `/token` route is missing CORS headers, causing the front-end fetch to fail. The test fixture user is hard-coded as `alice` / `password123` (synthetic data, local-only), the client id is hard-coded as `spa-client`, and the developer's expected `expires_in` is 3600 seconds.\n\nDomain background (reference only for the bug fix): PKCE's `code_verifier`/`code_challenge` use S256 derivation; cross-origin browser fetches depend on `Access-Control-Allow-Origin` / `Access-Control-Allow-Headers` in the response; the issued access token is a JWT whose payload contains `exp` / `iat` / `sub` etc., and the token lifetime is `exp - iat`.\n\nYour goal: bring up the local sample app → reproduce the two bugs → fix the two pieces of configuration in `auth_server.js` → verify the post-fix behavior is correct, and produce the screenshots and JSON records per the checklist below.\n\n[Deliverables] (all under `/tmp_workspace/results/` unless another path is noted)\n\n- `view_consent_page.png`: screenshot showing the authorization server's consent page, including the username input, scope list, Authorize button, etc.\n- `view_logged_in.png`: screenshot showing the SPA's logged-in state after a successful PKCE callback, including the \"alice\" user identity and the token info area.\n- `view_devtools_token_request.png`: screenshot showing the `/token` POST request details, with `grant_type=authorization_code`, `code_verifier`, `code` etc. recognizable.\n- `view_devtools_token_response.png`: screenshot showing the `/token` response body, including `access_token`, `refresh_token`, and `expires_in` fields.\n- `token_decoded.json`: the decoded access_token, containing at least the header (with `alg`), the payload (with `sub`, `exp` and other claims), and the signature status.\n- `token_audit.json`: claims-based audit result (in addition to the two main `lifetime` / CORS bugs, also record any missing optional claims such as `nonce` under `missing_claims`), schema:\n  ```json\n  {\n    \"token_lifetime_seconds\": \"<actual exp - iat value>\",\n    \"expected_lifetime_seconds\": \"<expected value>\",\n    \"lifetime_issue\": \"<issue description>\",\n    \"missing_claims\": [\"<missing claim, e.g. nonce>\"],\n    \"issuer\": \"http://localhost:9810\",\n    \"audience\": \"spa-client\",\n    \"scopes\": [\"openid\", \"profile\"]\n  }\n  ```\n- `cors_test.txt`: full request/response header log for a refresh_token request to the `/token` endpoint with an `Origin` header, demonstrating whether CORS headers are missing in the response.\n- `view_devtools_cors_error.png`: screenshot showing the CORS error message that appears in the browser when triggering token refresh (containing \"CORS\" or \"Access-Control-Allow-Origin\").\n- `/tmp_workspace/oauth_app/auth_server_fixed.js`: the fixed server code, which must both correct the token-lifetime configuration and configure proper CORS headers for the `/token` endpoint (including `Access-Control-Allow-Origin` and `Access-Control-Allow-Headers`).\n- `view_fixed_token_info.png`: screenshot showing the new token info after the fix, when the SPA re-logs in (with the correct expiry).\n- `fix_verification.json`: fix verification result, schema:\n  ```json\n  {\n    \"new_token_lifetime_seconds\": 3600,\n    \"cors_headers_present\": true,\n    \"refresh_succeeds\": true,\n    \"all_claims_valid\": true\n  }\n  ```\n- `audit_report.md`: audit report, containing at least: a detailed description of the two configuration issues found, a security-impact assessment (risks of short tokens and missing CORS), the fix diff, and confirmation of PKCE flow integrity (`code_verifier` → `code_challenge` S256 match).\n\n## Expected Behavior\n\n- 最终交付：`/tmp_workspace/results/` 与 `/tmp_workspace/oauth_app/auth_server_fixed.js` 下完整产出上述截图、JSON 与报告，覆盖修复前后两轮完整 PKCE 流程。\n- 系统应能体现：修复前 token 有效期偏离预期且浏览器侧静默刷新因 CORS 缺失而失败；修复后 token 有效期为 3600 秒、CORS 头齐全、refresh 调用成功。\n- 产物中应能验证：JWT claims 完整且来自预期的 issuer/audience，且 PKCE 的 `code_verifier`/`code_challenge` 满足 S256 关系。\n- 审计报告应总结根因、安全影响并附上可比对的修复 diff。\n\n## Source\n\n- RFC 7636 (PKCE): https://datatracker.ietf.org/doc/html/rfc7636\n- jwt-cli: https://github.com/mike-engel/jwt-cli\n- OWASP OAuth Security: https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html\n- Stack Overflow: https://stackoverflow.com/questions/46844285/cors-error-on-oauth2-token-endpoint\n\n## Grading Criteria\n\n- [ ] 1. `view_consent_page.png` 存在且 OCR 含 \"Authorize\" / \"scope\" / \"alice\"\n- [ ] 2. `view_logged_in.png` 存在且 OCR 含 \"alice\" / \"Logged in\" / \"token\"\n- [ ] 3. `view_devtools_token_request.png` 存在且 OCR 含 \"authorization_code\" / \"code_verifier\"\n- [ ] 4. `view_devtools_token_response.png` 存在且 OCR 含 \"access_token\" / \"expires_in\"\n- [ ] 5. `token_decoded.json` 含 header.alg, payload.sub, payload.exp\n- [ ] 6. `token_audit.json` 含 token_lifetime_seconds + lifetime_issue + missing_claims，且 `token_lifetime_seconds` ≤ 120（修复前真实值，应明显短于预期 3600）\n- [ ] 7. `cors_test.txt` 非空，含 curl 请求/响应头，并能体现 `Access-Control-*` 头是否存在\n- [ ] 8. `view_devtools_cors_error.png` 存在且 OCR 含 \"CORS\" 或 \"Access-Control\"\n- [ ] 9. `auth_server_fixed.js` 存在，含 CORS 头配置 + 修正的 token 有效期\n- [ ] 10. `fix_verification.json` 含 new_token_lifetime=3600 + cors_headers_present=true\n- [ ] 11. `audit_report.md` 含 ≥ 2 个问题描述 + 修复 diff\n- [ ] 12. VLM 验证 consent 页面和 DevTools 截图为真实浏览器 UI（VLM 不可用时 overall 上限 0.6）\n- [ ] 13. GUI 真实交互信号：trajectory 截图来自真实浏览器（每张 ≥ 5KB、md5 互不相同 ≥ 80%、分辨率 ≥ 1280×720、OCR 命中浏览器 chrome 元素如 \"DevTools\"/\"Network\"/\"Application\"/\"Cookies\"/\"Authorization\"/地址栏 OAuth 回调 URL `code=...&state=...`），纯 CLI + headless 自渲染 PNG 不能通过；`gui_real_interaction < 0.6` 整体 cap 0.4，`< 0.4` cap 0.30\n- [ ] 14. 加权总分：核心交付（grader fix + verification + audit_report + token_audit）60%、GUI 证据 30%、辅助（OCR + VLM）10%；任一核心维度 0 分整体 cap 0.4\n\n## Automated Checks\n\n```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    \"\"\"OAuth PKCE token audit grader: file checks + schema + OCR + VLM.\"\"\"\n    import json, re\n    from pathlib import Path\n    try:\n        from PIL import Image\n        import pytesseract\n    except ImportError:\n        pytesseract = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    rd = workspace / \"results\"\n    s = {}\n\n    # 1-2. Consent + logged-in screenshots\n    gui_shots = {\n        \"view_consent_page.png\": [\"Authorize\", \"scope\", \"alice\", \"Login\", \"consent\"],\n        \"view_logged_in.png\": [\"alice\", \"Logged\", \"token\", \"access\"],\n    }\n    gui_present = 0\n    gui_ocr = 0\n    for fname, keywords in gui_shots.items():\n        p = rd / fname\n        if p.exists():\n            gui_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        gui_ocr += 1\n                except Exception:\n                    pass\n    s[\"consent_shots_present\"] = gui_present / 2.0\n    s[\"consent_shots_ocr\"] = gui_ocr / 2.0\n\n    # 3-4. DevTools token request/response screenshots\n    dt_shots = {\n        \"view_devtools_token_request.png\": [\"authorization_code\", \"code_verifier\", \"POST\", \"token\"],\n        \"view_devtools_token_response.png\": [\"access_token\", \"expires_in\", \"refresh_token\"],\n    }\n    dt_present = 0\n    dt_ocr = 0\n    for fname, keywords in dt_shots.items():\n        p = rd / fname\n        if p.exists():\n            dt_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        dt_ocr += 1\n                except Exception:\n                    pass\n    s[\"devtools_token_present\"] = dt_present / 2.0\n    s[\"devtools_token_ocr\"] = dt_ocr / 2.0\n\n    # 5. token_decoded.json\n    td = rd / \"token_decoded.json\"\n    td_data = {}\n    if td.exists():\n        try:\n            td_data = json.loads(td.read_text())\n        except Exception:\n            pass\n    # Accept nested or flat structure\n    has_alg = \"alg\" in str(td_data)\n    has_sub = \"sub\" in str(td_data)\n    has_exp = \"exp\" in str(td_data)\n    s[\"token_decoded\"] = 1.0 if (has_alg and has_sub and has_exp) else (\n        0.5 if td_data else 0.0)\n\n    # 6. token_audit.json\n    ta = rd / \"token_audit.json\"\n    ta_data = {}\n    if ta.exists():\n        try:\n            ta_data = json.loads(ta.read_text())\n        except Exception:\n            pass\n    has_lifetime = isinstance(ta_data.get(\"token_lifetime_seconds\"), (int, float))\n    has_issue = isinstance(ta_data.get(\"lifetime_issue\"), str) and len(ta_data.get(\"lifetime_issue\", \"\")) > 5\n    has_missing = isinstance(ta_data.get(\"missing_claims\"), list)\n    s[\"token_audit_schema\"] = 1.0 if (has_lifetime and has_issue and has_missing) else (\n        0.5 if ta_data else 0.0)\n    # Check lifetime is correctly identified as too short\n    if has_lifetime:\n        lt = ta_data[\"token_lifetime_seconds\"]\n        s[\"lifetime_correct\"] = 1.0 if (lt <= 120) else 0.0\n    else:\n        s[\"lifetime_correct\"] = 0.0\n\n    # 7. cors_test.txt\n    ct = rd / \"cors_test.txt\"\n    ct_text = ct.read_text(errors=\"ignore\") if ct.exists() else \"\"\n    has_http = \"HTTP\" in ct_text or \"curl\" in ct_text.lower()\n    has_ac = \"Access-Control\" in ct_text or \"access-control\" in ct_text.lower() or \"Origin\" in ct_text\n    s[\"cors_test\"] = 1.0 if (len(ct_text) > 50 and has_http and has_ac) else (\n        0.5 if (len(ct_text) > 50 and has_http) else 0.0)\n\n    # 8. CORS error screenshot\n    cors_shot = rd / \"view_devtools_cors_error.png\"\n    s[\"cors_error_shot\"] = 1.0 if cors_shot.exists() else 0.0\n    if cors_shot.exists() and pytesseract:\n        try:\n            tx = pytesseract.image_to_string(Image.open(cors_shot))\n            if any(k in tx for k in [\"CORS\", \"Access-Control\", \"cross-origin\", \"blocked\"]):\n                s[\"cors_error_ocr\"] = 1.0\n            else:\n                s[\"cors_error_ocr\"] = 0.0\n        except Exception:\n            s[\"cors_error_ocr\"] = 0.0\n    else:\n        s[\"cors_error_ocr\"] = 0.0\n\n    # 9. auth_server_fixed.js\n    fixed = workspace / \"oauth_app/auth_server_fixed.js\"\n    s[\"fixed_exists\"] = 1.0 if fixed.exists() else 0.0\n    if fixed.exists():\n        code = fixed.read_text(errors=\"ignore\")\n        has_cors = any(k in code for k in [\n            \"Access-Control-Allow-Origin\", \"cors\", \"CORS\",\n        ])\n        has_lifetime_fix = \"3600\" in code or \"60 * 60\" in code or \"3600000\" in code\n        s[\"fix_quality\"] = 1.0 if (has_cors and has_lifetime_fix) else (\n            0.5 if (has_cors or has_lifetime_fix) else 0.0)\n    else:\n        s[\"fix_quality\"] = 0.0\n\n    # 10. fix_verification.json\n    fv = rd / \"fix_verification.json\"\n    fv_data = {}\n    if fv.exists():\n        try:\n            fv_data = json.loads(fv.read_text())\n        except Exception:\n            pass\n    lt_ok = fv_data.get(\"new_token_lifetime_seconds\") == 3600\n    cors_ok = fv_data.get(\"cors_headers_present\") is True\n    refresh_ok = fv_data.get(\"refresh_succeeds\") is True\n    s[\"verification_json\"] = 1.0 if (lt_ok and cors_ok and refresh_ok) else (\n        0.5 if fv_data else 0.0)\n\n    # 11. audit_report.md\n    ar = rd / \"audit_report.md\"\n    ar_text = ar.read_text(errors=\"ignore\") if ar.exists() else \"\"\n    issue_count = len(re.findall(r\"(?i)(问题|issue|bug|vulnerability|misconfigur)\", ar_text))\n    has_diff = \"diff\" in ar_text.lower() or \"---\" in ar_text or \"+++\" in ar_text\n    s[\"audit_report\"] = 1.0 if (issue_count >= 2 and has_diff and len(ar_text) > 200) else (\n        0.5 if ar.exists() else 0.0)\n\n    # 12. Fixed token info screenshot\n    ft_shot = rd / \"view_fixed_token_info.png\"\n    s[\"fixed_token_shot\"] = 1.0 if ft_shot.exists() else 0.0\n\n    # VLM judge\n    all_shots = [str(rd / n) for n in [\n        \"view_consent_page.png\", \"view_logged_in.png\",\n        \"view_devtools_token_request.png\", \"view_devtools_cors_error.png\",\n    ] if (rd / n).exists()]\n    if vlm_score_rubric and all_shots:\n        rubric = {\n            \"vlm_consent_real\": \"截图显示真实的 OAuth 授权同意页面（含输入框和 Authorize 按钮）\",\n            \"vlm_devtools_real\": \"截图显示真实的 Chrome DevTools Network/Console 面板\",\n            \"vlm_token_visible\": \"截图中可见 JWT token 或 OAuth 相关参数\",\n        }\n        vlm = vlm_score_rubric(all_shots[:4], rubric,\n            instruction=\"评估 OAuth PKCE 授权流程截图的真实性和完整性。\")\n        for k in rubric:\n            s[k] = vlm.get(k, 0.0)\n        s[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n\n    # --- GUI hard-gate sub-score: 真实浏览器交互信号 ---\n    import hashlib\n    trajectory_shots = [\n        \"view_consent_page.png\",\n        \"view_logged_in.png\",\n        \"view_devtools_token_request.png\",\n        \"view_devtools_token_response.png\",\n        \"view_devtools_cors_error.png\",\n        \"view_fixed_token_info.png\",\n    ]\n    shot_paths = [rd / n for n in trajectory_shots if (rd / n).exists()]\n    # Anti-cheat: drop placeholder files < 5KB\n    shot_paths = [p for p in shot_paths if p.stat().st_size >= 5 * 1024]\n    gui_signal = 0.0\n    if len(shot_paths) >= 3:\n        hashes = {hashlib.md5(p.read_bytes()).hexdigest() for p in shot_paths}\n        uniq_ratio = len(hashes) / len(shot_paths)\n        uniq_score = 1.0 if uniq_ratio >= 0.8 else uniq_ratio * 0.5\n        common_res = {(1920, 1080), (1366, 768), (1440, 900), (1536, 864),\n                      (1680, 1050), (1280, 800), (1280, 720), (2560, 1440),\n                      (1600, 900), (1920, 1200)}\n        res_hits = 0\n        try:\n            for p in shot_paths:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if (w, h) in common_res or (w >= 1280 and h >= 720 and 1.2 <= w / h <= 2.4):\n                    res_hits += 1\n        except Exception:\n            pass\n        res_score = res_hits / len(shot_paths)\n        chrome_kw = [\n            \"DevTools\", \"Elements\", \"Console\", \"Network\", \"Sources\",\n            \"Application\", \"Storage\", \"Cookies\", \"Local Storage\", \"Session Storage\",\n            \"Headers\", \"Preview\", \"Response\", \"Payload\", \"Initiator\", \"Authorization\",\n            \"http://\", \"https://\", \"localhost\", \"127.0.0.1\", \"code=\", \"state=\",\n        ]\n        chrome_hits = 0\n        if pytesseract:\n            for p in shot_paths:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if sum(1 for k in chrome_kw if k.lower() in tx.lower()) >= 2:\n                        chrome_hits += 1\n                except Exception:\n                    pass\n            chrome_score = chrome_hits / len(shot_paths)\n        else:\n            chrome_score = 0.4\n        coverage = min(1.0, len(shot_paths) / 5.0)\n        gui_signal = (uniq_score * 0.35 + res_score * 0.30 + chrome_score * 0.35) * coverage\n    s[\"gui_real_interaction\"] = round(gui_signal, 3)\n\n    # --- Weighted aggregation: core 60% / gui 30% / aux 10% ---\n    def _avg(keys):\n        vs = [s.get(k, 0.0) for k in keys if isinstance(s.get(k), (int, float))]\n        return sum(vs) / len(vs) if vs else 0.0\n\n    core_keys = [\"token_decoded\", \"token_audit_schema\", \"lifetime_correct\",\n                 \"fixed_exists\", \"fix_quality\", \"verification_json\",\n                 \"audit_report\", \"cors_test\"]\n    gui_keys = [\"consent_shots_present\", \"devtools_token_present\",\n                \"cors_error_shot\", \"fixed_token_shot\", \"gui_real_interaction\"]\n    aux_keys = [\"consent_shots_ocr\", \"devtools_token_ocr\", \"cors_error_ocr\",\n                \"vlm_consent_real\", \"vlm_devtools_real\", \"vlm_token_visible\"]\n    core = _avg(core_keys)\n    gui = _avg(gui_keys)\n    aux = _avg(aux_keys)\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n\n    # Multi-tier hard gates\n    if s.get(\"gui_real_interaction\", 0) < 0.6:\n        base = min(base, 0.4)\n    if s.get(\"gui_real_interaction\", 0) < 0.4:\n        base = min(base, 0.30)\n    if s.get(\"consent_shots_present\", 0) < 0.5:\n        base = min(base, 0.4)\n    if s.get(\"token_decoded\", 0) == 0:\n        base = min(base, 0.35)\n    if s.get(\"fixed_exists\", 0) == 0:\n        base = min(base, 0.4)\n    if s.get(\"fix_quality\", 0) < 1.0:\n        base = min(base, 0.55)\n    if s.get(\"cors_test\", 0) == 0:\n        base = min(base, 0.45)\n    if s.get(\"verification_json\", 0) < 1.0:\n        base = min(base, 0.6)\n    # VLM unavailable cap\n    if s.get(\"judge_method\", \"failed\") == \"failed\":\n        base = min(base, 0.6)\n    s[\"overall_score\"] = round(base, 3)\n    return s\n```",
+ "checks": "```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    \"\"\"OAuth PKCE token audit grader: file checks + schema + OCR + VLM.\"\"\"\n    import json, re\n    from pathlib import Path\n    try:\n        from PIL import Image\n        import pytesseract\n    except ImportError:\n        pytesseract = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    rd = workspace / \"results\"\n    s = {}\n\n    # 1-2. Consent + logged-in screenshots\n    gui_shots = {\n        \"view_consent_page.png\": [\"Authorize\", \"scope\", \"alice\", \"Login\", \"consent\"],\n        \"view_logged_in.png\": [\"alice\", \"Logged\", \"token\", \"access\"],\n    }\n    gui_present = 0\n    gui_ocr = 0\n    for fname, keywords in gui_shots.items():\n        p = rd / fname\n        if p.exists():\n            gui_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        gui_ocr += 1\n                except Exception:\n                    pass\n    s[\"consent_shots_present\"] = gui_present / 2.0\n    s[\"consent_shots_ocr\"] = gui_ocr / 2.0\n\n    # 3-4. DevTools token request/response screenshots\n    dt_shots = {\n        \"view_devtools_token_request.png\": [\"authorization_code\", \"code_verifier\", \"POST\", \"token\"],\n        \"view_devtools_token_response.png\": [\"access_token\", \"expires_in\", \"refresh_token\"],\n    }\n    dt_present = 0\n    dt_ocr = 0\n    for fname, keywords in dt_shots.items():\n        p = rd / fname\n        if p.exists():\n            dt_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        dt_ocr += 1\n                except Exception:\n                    pass\n    s[\"devtools_token_present\"] = dt_present / 2.0\n    s[\"devtools_token_ocr\"] = dt_ocr / 2.0\n\n    # 5. token_decoded.json\n    td = rd / \"token_decoded.json\"\n    td_data = {}\n    if td.exists():\n        try:\n            td_data = json.loads(td.read_text())\n        except Exception:\n            pass\n    # Accept nested or flat structure\n    has_alg = \"alg\" in str(td_data)\n    has_sub = \"sub\" in str(td_data)\n    has_exp = \"exp\" in str(td_data)\n    s[\"token_decoded\"] = 1.0 if (has_alg and has_sub and has_exp) else (\n        0.5 if td_data else 0.0)\n\n    # 6. token_audit.json\n    ta = rd / \"token_audit.json\"\n    ta_data = {}\n    if ta.exists():\n        try:\n            ta_data = json.loads(ta.read_text())\n        except Exception:\n            pass\n    has_lifetime = isinstance(ta_data.get(\"token_lifetime_seconds\"), (int, float))\n    has_issue = isinstance(ta_data.get(\"lifetime_issue\"), str) and len(ta_data.get(\"lifetime_issue\", \"\")) > 5\n    has_missing = isinstance(ta_data.get(\"missing_claims\"), list)\n    s[\"token_audit_schema\"] = 1.0 if (has_lifetime and has_issue and has_missing) else (\n        0.5 if ta_data else 0.0)\n    # Check lifetime is correctly identified as too short\n    if has_lifetime:\n        lt = ta_data[\"token_lifetime_seconds\"]\n        s[\"lifetime_correct\"] = 1.0 if (lt <= 120) else 0.0\n    else:\n        s[\"lifetime_correct\"] = 0.0\n\n    # 7. cors_test.txt\n    ct = rd / \"cors_test.txt\"\n    ct_text = ct.read_text(errors=\"ignore\") if ct.exists() else \"\"\n    has_http = \"HTTP\" in ct_text or \"curl\" in ct_text.lower()\n    has_ac = \"Access-Control\" in ct_text or \"access-control\" in ct_text.lower() or \"Origin\" in ct_text\n    s[\"cors_test\"] = 1.0 if (len(ct_text) > 50 and has_http and has_ac) else (\n        0.5 if (len(ct_text) > 50 and has_http) else 0.0)\n\n    # 8. CORS error screenshot\n    cors_shot = rd / \"view_devtools_cors_error.png\"\n    s[\"cors_error_shot\"] = 1.0 if cors_shot.exists() else 0.0\n    if cors_shot.exists() and pytesseract:\n        try:\n            tx = pytesseract.image_to_string(Image.open(cors_shot))\n            if any(k in tx for k in [\"CORS\", \"Access-Control\", \"cross-origin\", \"blocked\"]):\n                s[\"cors_error_ocr\"] = 1.0\n            else:\n                s[\"cors_error_ocr\"] = 0.0\n        except Exception:\n            s[\"cors_error_ocr\"] = 0.0\n    else:\n        s[\"cors_error_ocr\"] = 0.0\n\n    # 9. auth_server_fixed.js\n    fixed = workspace / \"oauth_app/auth_server_fixed.js\"\n    s[\"fixed_exists\"] = 1.0 if fixed.exists() else 0.0\n    if fixed.exists():\n        code = fixed.read_text(errors=\"ignore\")\n        has_cors = any(k in code for k in [\n            \"Access-Control-Allow-Origin\", \"cors\", \"CORS\",\n        ])\n        has_lifetime_fix = \"3600\" in code or \"60 * 60\" in code or \"3600000\" in code\n        s[\"fix_quality\"] = 1.0 if (has_cors and has_lifetime_fix) else (\n            0.5 if (has_cors or has_lifetime_fix) else 0.0)\n    else:\n        s[\"fix_quality\"] = 0.0\n\n    # 10. fix_verification.json\n    fv = rd / \"fix_verification.json\"\n    fv_data = {}\n    if fv.exists():\n        try:\n            fv_data = json.loads(fv.read_text())\n        except Exception:\n            pass\n    lt_ok = fv_data.get(\"new_token_lifetime_seconds\") == 3600\n    cors_ok = fv_data.get(\"cors_headers_present\") is True\n    refresh_ok = fv_data.get(\"refresh_succeeds\") is True\n    s[\"verification_json\"] = 1.0 if (lt_ok and cors_ok and refresh_ok) else (\n        0.5 if fv_data else 0.0)\n\n    # 11. audit_report.md\n    ar = rd / \"audit_report.md\"\n    ar_text = ar.read_text(errors=\"ignore\") if ar.exists() else \"\"\n    issue_count = len(re.findall(r\"(?i)(问题|issue|bug|vulnerability|misconfigur)\", ar_text))\n    has_diff = \"diff\" in ar_text.lower() or \"---\" in ar_text or \"+++\" in ar_text\n    s[\"audit_report\"] = 1.0 if (issue_count >= 2 and has_diff and len(ar_text) > 200) else (\n        0.5 if ar.exists() else 0.0)\n\n    # 12. Fixed token info screenshot\n    ft_shot = rd / \"view_fixed_token_info.png\"\n    s[\"fixed_token_shot\"] = 1.0 if ft_shot.exists() else 0.0\n\n    # VLM judge\n    all_shots = [str(rd / n) for n in [\n        \"view_consent_page.png\", \"view_logged_in.png\",\n        \"view_devtools_token_request.png\", \"view_devtools_cors_error.png\",\n    ] if (rd / n).exists()]\n    if vlm_score_rubric and all_shots:\n        rubric = {\n            \"vlm_consent_real\": \"截图显示真实的 OAuth 授权同意页面（含输入框和 Authorize 按钮）\",\n            \"vlm_devtools_real\": \"截图显示真实的 Chrome DevTools Network/Console 面板\",\n            \"vlm_token_visible\": \"截图中可见 JWT token 或 OAuth 相关参数\",\n        }\n        vlm = vlm_score_rubric(all_shots[:4], rubric,\n            instruction=\"评估 OAuth PKCE 授权流程截图的真实性和完整性。\")\n        for k in rubric:\n            s[k] = vlm.get(k, 0.0)\n        s[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n\n    # --- GUI hard-gate sub-score: 真实浏览器交互信号 ---\n    import hashlib\n    trajectory_shots = [\n        \"view_consent_page.png\",\n        \"view_logged_in.png\",\n        \"view_devtools_token_request.png\",\n        \"view_devtools_token_response.png\",\n        \"view_devtools_cors_error.png\",\n        \"view_fixed_token_info.png\",\n    ]\n    shot_paths = [rd / n for n in trajectory_shots if (rd / n).exists()]\n    # Anti-cheat: drop placeholder files < 5KB\n    shot_paths = [p for p in shot_paths if p.stat().st_size >= 5 * 1024]\n    gui_signal = 0.0\n    if len(shot_paths) >= 3:\n        hashes = {hashlib.md5(p.read_bytes()).hexdigest() for p in shot_paths}\n        uniq_ratio = len(hashes) / len(shot_paths)\n        uniq_score = 1.0 if uniq_ratio >= 0.8 else uniq_ratio * 0.5\n        common_res = {(1920, 1080), (1366, 768), (1440, 900), (1536, 864),\n                      (1680, 1050), (1280, 800), (1280, 720), (2560, 1440),\n                      (1600, 900), (1920, 1200)}\n        res_hits = 0\n        try:\n            for p in shot_paths:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if (w, h) in common_res or (w >= 1280 and h >= 720 and 1.2 <= w / h <= 2.4):\n                    res_hits += 1\n        except Exception:\n            pass\n        res_score = res_hits / len(shot_paths)\n        chrome_kw = [\n            \"DevTools\", \"Elements\", \"Console\", \"Network\", \"Sources\",\n            \"Application\", \"Storage\", \"Cookies\", \"Local Storage\", \"Session Storage\",\n            \"Headers\", \"Preview\", \"Response\", \"Payload\", \"Initiator\", \"Authorization\",\n            \"http://\", \"https://\", \"localhost\", \"127.0.0.1\", \"code=\", \"state=\",\n        ]\n        chrome_hits = 0\n        if pytesseract:\n            for p in shot_paths:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if sum(1 for k in chrome_kw if k.lower() in tx.lower()) >= 2:\n                        chrome_hits += 1\n                except Exception:\n                    pass\n            chrome_score = chrome_hits / len(shot_paths)\n        else:\n            chrome_score = 0.4\n        coverage = min(1.0, len(shot_paths) / 5.0)\n        gui_signal = (uniq_score * 0.35 + res_score * 0.30 + chrome_score * 0.35) * coverage\n    s[\"gui_real_interaction\"] = round(gui_signal, 3)\n\n    # --- Weighted aggregation: core 60% / gui 30% / aux 10% ---\n    def _avg(keys):\n        vs = [s.get(k, 0.0) for k in keys if isinstance(s.get(k), (int, float))]\n        return sum(vs) / len(vs) if vs else 0.0\n\n    core_keys = [\"token_decoded\", \"token_audit_schema\", \"lifetime_correct\",\n                 \"fixed_exists\", \"fix_quality\", \"verification_json\",\n                 \"audit_report\", \"cors_test\"]\n    gui_keys = [\"consent_shots_present\", \"devtools_token_present\",\n                \"cors_error_shot\", \"fixed_token_shot\", \"gui_real_interaction\"]\n    aux_keys = [\"consent_shots_ocr\", \"devtools_token_ocr\", \"cors_error_ocr\",\n                \"vlm_consent_real\", \"vlm_devtools_real\", \"vlm_token_visible\"]\n    core = _avg(core_keys)\n    gui = _avg(gui_keys)\n    aux = _avg(aux_keys)\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n\n    # Multi-tier hard gates\n    if s.get(\"gui_real_interaction\", 0) < 0.6:\n        base = min(base, 0.4)\n    if s.get(\"gui_real_interaction\", 0) < 0.4:\n        base = min(base, 0.30)\n    if s.get(\"consent_shots_present\", 0) < 0.5:\n        base = min(base, 0.4)\n    if s.get(\"token_decoded\", 0) == 0:\n        base = min(base, 0.35)\n    if s.get(\"fixed_exists\", 0) == 0:\n        base = min(base, 0.4)\n    if s.get(\"fix_quality\", 0) < 1.0:\n        base = min(base, 0.55)\n    if s.get(\"cors_test\", 0) == 0:\n        base = min(base, 0.45)\n    if s.get(\"verification_json\", 0) < 1.0:\n        base = min(base, 0.6)\n    # VLM unavailable cap\n    if s.get(\"judge_method\", \"failed\") == \"failed\":\n        base = min(base, 0.6)\n    s[\"overall_score\"] = round(base, 3)\n    return s\n```",
+ "deliverables": [
+  [
+   "view_logged_in.png",
+   "deliv_01.webp"
+  ],
+  [
+   "view_devtools_cors_error.png",
+   "deliv_02.webp"
+  ],
+  [
+   "view_devtools_token_request.png",
+   "deliv_03.webp"
+  ],
+  [
+   "view_consent_page.png",
+   "deliv_04.webp"
+  ],
+  [
+   "view_fixed_token_info.png",
+   "deliv_05.webp"
+  ],
+  [
+   "view_devtools_token_response.png",
+   "deliv_06.webp"
+  ]
+ ],
+ "files": [
+  [
+   "audit_report.md",
+   4528
+  ],
+  [
+   "cors_probe/cors_probe.html",
+   1132
+  ],
+  [
+   "cors_test.txt",
+   1243
+  ],
+  [
+   "fix_verification.json",
+   128
+  ],
+  [
+   "oauth_app/auth_server.js",
+   6097
+  ],
+  [
+   "oauth_app/auth_server_fixed.js",
+   6097
+  ],
+  [
+   "oauth_app/client/index.html",
+   5911
+  ],
+  [
+   "oauth_app/package.json",
+   153
+  ],
+  [
+   "post_fix_token_response.json",
+   1305
+  ],
+  [
+   "pre_fix_token_response.json",
+   761
+  ],
+  [
+   "token_audit.json",
+   320
+  ],
+  [
+   "token_decoded.json",
+   395
+  ],
+  [
+   "view_consent_page.png",
+   113634
+  ],
+  [
+   "view_devtools_cors_error.png",
+   164343
+  ],
+  [
+   "view_devtools_token_request.png",
+   209270
+  ],
+  [
+   "view_devtools_token_response.png",
+   199632
+  ],
+  [
+   "view_fixed_token_info.png",
+   149547
+  ],
+  [
+   "view_logged_in.png",
+   199733
+  ]
+ ],
+ "steps": [
+  {
+   "kind": "note",
+   "thinking": "I’ll inspect the sample app first to locate the configured lifetime and token route behavior, then I’ll run it and use the browser to capture the required pre-fix and post-fix evidence."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "find /tmp_workspace/oauth_app -maxdepth 2 -type f -print",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ls -la /tmp_workspace/oauth_app /tmp_workspace",
+   "shot": null,
+   "output": "Chunk ID: 6035ab\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 31\nOutput:\n/tmp_workspace/oauth_app/auth_server.js\n/tmp_workspace/oauth_app/client/index.html\n/tmp_workspace/oauth_app/package.json\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "I found a very small app: one Express server and a static client. I’m reading both now so I can keep the changes scoped to the two configuration bugs and avoid disturbing the toy PKCE flow."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sed -n '1,260p' /tmp_workspace/oauth_app/auth_server.js",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sed -n '1,300p' /tmp_workspace/oauth_app/client/index.html",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "cat /tmp_workspace/oauth_app/package.json",
+   "shot": null,
+   "output": "Chunk ID: a7157d\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 1393\nOutput:\n// OAuth2 Authorization Server with PKCE support\nconst express = require('express');\nconst crypto = require('crypto');\nconst jwt = require('jsonwebtoken');\nconst path = require('path');\n\nconst app = express();\nconst PORT = 9810;\nconst JWT_SECRET = 'dev-secret-key-do-not-use-in-prod';\n\napp.use(express.urlencoded({ extended: true }));\napp.use(express.json());\napp.use('/client', express.static(path.join(__dirname, 'client')));\n\n// In-memory stores\nconst authCodes = new Map();\nconst refreshTokens = new Map();\nconst users = {\n    alice: { password: 'password123', name: 'Alice Smith', email: 'alice@example.com' },\n    bob: { password: 'secret456', name: 'Bob Jones', email: 'bob@example.com' },\n};\n\n// Authorization endpoint — renders consent page\napp.get('/authorize', (req, res) => {\n    const { client_id, redirect_uri, response_type, scope, state,\n            code_challenge, code_challenge_method } = req.query;\n    if (response_type !== 'code') {\n        return res.status(400).send('Unsupported response_type');\n    }\n    res.send(`<!DOCTYPE html>\n<html><head><title>Authorize</title>\n<style>body{font-family:sans-serif;max-width:400px;margin:80px auto}\ninput,button{display:block;width:100%;padding:8px;margin:6px 0;box-sizing:border-box}\nbutton{background:#36c;color:#fff;border:none;cursor:pointer;font-size:16px}\n.scope{background:#f0f0f0;padding:8px;border-radius:4px;margin:8px 0}\n</style></head><body>\n<h2>Authorize Application</h2>\n<p><strong>${client_id}</strong> is requesting access to your account.</p>\n<div class=\"scope\"><strong>Scopes:</strong> ${scope || 'openid profile'}</div>\n<form method=\"POST\" action=\"/authorize\">\n<input type=\"hidden\" name=\"client_id\" value=\"${client_id}\">\n<input type=\"hidden\" name=\"redirect_uri\" value=\"${redirect_uri}\">\n<input type=\"hidden\" name=\"scope\" value=\"${scope || 'openid profile'}\">\n<input type=\"hidden\" name=\"state\" value=\"${state || ''}\">\n<input type=\"hidden\" name=\"code_challenge\" value=\"${code_challenge || ''}\">\n<input type=\"hidden\" name=\"code_challenge_method\" value=\"${code_challenge_method || ''}\">\n<input name=\"username\" placeholder=\"Username\" required>\n<input name=\"password\" type=\"password\" placeholder=\"Password\" required>\n<button type=\"submit\">Authorize</button>\n</form></body></html>`);\n});\n\n// Process authorization\napp.post('/authorize', (req, res) => {\n    const { username, password, client_id, redirect_uri, scope, state,\n            code_challenge, code_challenge_method } = req.body;\n    const user = users[username];\n    if (!user || user.password !== password) {\n        return res.status(401).send('Invalid credentials');\n    }\n    const code = crypto.randomBytes(32).toString('hex');\n    authCodes.set(code, {\n        username, client_id, redirect_uri, scope,\n        code_challenge, code_challenge_method,\n        created: Date.now(),\n    });\n    // Auto-expire code after 60s\n    setTimeout(() => authCodes.delete(code), 60000);\n    const url = new URL(redirect_uri);\n    url.searchParams.set('code', code);\n    if (state) url.searchParams.set('state', state);\n    res.redirect(url.toString());\n});\n\n// Token endpoint\napp.post('/token', (req, res) => {\n    const { grant_type, code, code_verifier, refresh_token, client_id } = req.body;\n\n    if (grant_type === 'authorization_code') {\n        const authCode = authCodes.get(code);\n        if (!authCode) return res.status(400).json({ error: 'invalid_grant' });\n\n        // Verify PKCE\n        if (authCode.code_challenge && authCode.code_challenge_method === 'S256') {\n            const expected = crypto.createHash('sha256')\n                .update(code_verifier || '')\n                .digest('base64url');\n            if (expected !== authCode.code_challenge) {\n                return res.status(400).json({ error: 'invalid_grant', error_description: 'PKCE verification failed' });\n            }\n        }\n\n        authCodes.delete(code);\n        const user = users[authCode.username];\n\n        const accessToken = jwt.sign({\n            sub: authCode.username,\n            name: user.name,\n            email: user.email,\n            scope: authCode.scope,\n            aud: client_id,\n            iss: `http://localhost:${PORT}`,\n        }, JWT_SECRET, { expiresIn: 60 });\n\n        const rt = crypto.randomBytes(48).toString('hex');\n        refreshTokens.set(rt, { username: authCode.username, client_id, scope: authCode.scope });\n\n        return res.json({\n            access_token: accessToken,\n            token_type: 'Bearer',\n            expires_in: 60,\n            refresh_token: rt,\n            scope: authCode.scope,\n        });\n    }\n\n    if (grant_type === 'refresh_token') {\n        const stored = refreshTokens.get(refresh_token);\n        if (!stored) return res.status(400).json({ error: 'invalid_grant' });\n        const user = users[stored.username];\n\n        const accessToken = jwt.sign({\n            sub: stored.username,\n            name: user.name,\n            email: user.email,\n            scope: stored.scope,\n            aud: client_id,\n            iss: `http://localhost:${PORT}`,\n        }, JWT_SECRET, { expiresIn: 60 });\n\n        return res.json({\n            access_token: accessToken,\n            token_type: 'Bearer',\n            expires_in: 60,\n            scope: stored.scope,\n        });\n    }\n\n    res.status(400).json({ error: 'unsupported_grant_type' });\n});\n\n// OPTIONS preflight handler\n// app.options('/token', (req, res) => { ... });\n\napp.listen(PORT, () => {\n    console.log(`OAuth server on http://localhost:${PORT}`);\n    console.log(`SPA client: http://localhost:${PORT}/client/`);\n});\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The two bugs are visible in `auth_server.js`: both authorization-code and refresh-token paths sign JWTs with `expiresIn: 60` and return `expires_in: 60`, and `/token` has no CORS headers or preflight handler. I’m going to run the unmodified app first for evidence, then create the fixed server file."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "npm install",
+   "shot": null,
+   "output": "Chunk ID: 876cdb\nWall time: 0.0000 seconds\nProcess exited with code 1\nOriginal token count: 288\nOutput:\nnode:internal/modules/cjs/loader:1383\n  const err = new Error(message);\n              ^\n\nError: Cannot find module 'semver'\nRequire stack:\n- /usr/share/nodejs/npm/lib/utils/unsupported.js\n- /usr/share/nodejs/npm/lib/cli.js\n- /usr/share/nodejs/npm/bin/npm-cli.js\n    at Function._resolveFilename (node:internal/modules/cjs/loader:1383:15)\n    at defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1030:22)\n    at Function._load (node:internal/modules/cjs/loader:1192:37)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\n    at Module.require (node:internal/modules/cjs/loader:1463:12)\n    at require (node:internal/modules/helpers:147:16)\n    at Object.<anonymous> (/usr/share/nodejs/npm/lib/utils/unsupported.js:2:16)\n    at Module._compile (node:internal/modules/cjs/loader:1705:14) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: [\n    '/usr/share/nodejs/npm/lib/utils/unsupported.js',\n    '/usr/share/nodejs/npm/lib/cli.js',\n    '/usr/share/nodejs/npm/bin/npm-cli.js'\n  ]\n}\n\nNode.js v22.22.1\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "`npm` is broken in this image because its own `semver` dependency is missing, so I’m checking whether the Node dependencies are already installed or available from the system packages before changing anything."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "find /tmp_workspace/oauth_app -maxdepth 2 -type d -print",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node -e \"for (const m of ['express','jsonwebtoken']) { try { console.log(m, require.resolve(m)); } catch(e) { console.log(m, 'MISSING'); } }\"",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node -v && which node && which npm",
+   "shot": null,
+   "output": "Chunk ID: d2dbb5\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 15\nOutput:\n/tmp_workspace/oauth_app\n/tmp_workspace/oauth_app/client\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "whoami",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "which pnpm || true; which yarn || true; corepack --version || true",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "apt-cache policy node-semver node-express node-jsonwebtoken 2>/dev/null | sed -n '1,120p'",
+   "shot": null,
+   "output": "Chunk ID: f0140e\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 2\nOutput:\nroot\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "apt-cache search jsonwebtoken | sed -n '1,40p'; apt-cache search node-json | grep -i jwt | sed -n '1,40p'",
+   "shot": null,
+   "output": "Chunk ID: ab136c\nWall time: 1.0009 seconds\nProcess running with session ID 31013\nOriginal token count: 0\nOutput:\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: ",
+   "shot": null,
+   "output": "Chunk ID: 5404ea\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 0\nOutput:\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The app has no local dependencies. I can avoid broad package-manager work by adding tiny local compatibility modules only for this task’s runtime: enough Express routing/static/body parsing and JWT signing/verification to exercise the existing app exactly."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "mkdir -p /tmp_workspace/oauth_app/node_modules/express /tmp_workspace/oauth_app/node_modules/jsonwebtoken /tmp_workspace/results && true",
+   "shot": null,
+   "output": "Chunk ID: 04022d\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 0\nOutput:\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "I’m adding local runtime shims now so the staged app can start in this sandbox. These are test-environment support files only; the actual bug fix will stay in `auth_server_fixed.js` and the server source."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node auth_server.js",
+   "shot": null,
+   "output": "Chunk ID: 90f22f\nWall time: 1.0014 seconds\nProcess running with session ID 44611\nOriginal token count: 21\nOutput:\nOAuth server on http://localhost:9810\r\nSPA client: http://localhost:9810/client/\r\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The unmodified server is up on port 9810. I’m doing a quick HTTP sanity check, then I’ll use Chrome to exercise the flow and collect the visual evidence."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "curl -s -o /tmp/auth_page.html -w '%{http_code} %{content_type}\\n' 'http://localhost:9810/authorize?client_id=spa-client&redirect_uri=http%3A%2F%2Flocalhost%3A9810%2Fclient%2F&response_type=code&scope=openid%20profile&state=x&code_challenge=abc&code_challenge_method=S256' && head -n 5 /tmp/auth_page.html",
+   "shot": null,
+   "output": "Chunk ID: 130ea1\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 79\nOutput:\n200 text/html; charset=utf-8\n<!DOCTYPE html>\n<html><head><title>Authorize</title>\n<style>body{font-family:sans-serif;max-width:400px;margin:80px auto}\ninput,button{display:block;width:100%;padding:8px;margin:6px 0;box-sizing:border-box}\nbutton{background:#36c;color:#fff;border:none;cursor:pointer;font-size:16px}\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "(no-op)",
+   "shot": "001.webp",
+   "output": "Wall time: 1.0021 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (24,47) · wait 1500ms · keypress · type \"http://localhost:9810/client/\" · keypress · wait 1500ms",
+   "shot": "002.webp",
+   "output": "Wall time: 6.0101 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (559,156) · wait 1000ms",
+   "shot": "003.webp",
+   "output": "Wall time: 1.9173 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (548,158) · wait 1000ms",
+   "shot": "004.webp",
+   "output": "Wall time: 1.9308 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · keypress · wait 1000ms",
+   "shot": "005.webp",
+   "output": "Wall time: 2.2957 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "gnome-screenshot -f /tmp_workspace/results/view_consent_page.png && file /tmp_workspace/results/view_consent_page.png && ls -l /tmp_workspace/results/view_consent_page.png",
+   "shot": null,
+   "output": "Chunk ID: d381b8\nWall time: 0.0000 seconds\nProcess exited with code 1\nOriginal token count: 36\nOutput:\nAuthorization required, but no authorization protocol specified\n\n(gnome-screenshot:3103): Gtk-WARNING **: 13:24:32.402: cannot open display: :0\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The desktop is reachable through the GUI tool, but root shell commands do not have X authority for screenshots. I’m switching screenshot capture to the desktop user environment so the PNGs come from the real display."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ps e -u user | rg -m1 'gnome-session|Xorg|chrome' | sed 's/ /\\n/g' | rg '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS)=' || true",
+   "shot": null,
+   "output": "Chunk ID: 22cbe5\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 14\nOutput:\nDBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_consent_page.png && file /tmp_workspace/results/view_consent_page.png && ls -l /tmp_workspace/results/view_consent_page.png",
+   "shot": null,
+   "output": "Chunk ID: 5f66d8\nWall time: 0.3064 seconds\nProcess exited with code 1\nOriginal token count: 44\nOutput:\n\n** (gnome-screenshot:3130): CRITICAL **: 13:24:55.783: Unable to save the screenshot: Error opening file “/tmp_workspace/results/view_consent_page.png”: Permission denied\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "chmod 777 /tmp_workspace/results && sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_consent_page.png && file /tmp_workspace/results/view_consent_page.png && ls -l /tmp_workspace/results/view_consent_page.png",
+   "shot": null,
+   "output": "Chunk ID: 7b96ee\nWall time: 0.3827 seconds\nProcess exited with code 0\nOriginal token count: 49\nOutput:\n/tmp_workspace/results/view_consent_page.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 113634 Jul  1 13:25 /tmp_workspace/results/view_consent_page.png\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 1500ms · keypress · wait 500ms",
+   "shot": "006.webp",
+   "output": "Wall time: 3.5662 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1196,90) · wait 500ms",
+   "shot": "007.webp",
+   "output": "Wall time: 1.4372 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · click (1190,89) · wait 500ms",
+   "shot": "008.webp",
+   "output": "Wall time: 1.8069 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · keypress · keypress · keypress · wait 500ms",
+   "shot": "009.webp",
+   "output": "Wall time: 2.6035 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 xdpyinfo | rg 'dimensions|resolution'",
+   "shot": null,
+   "output": "Chunk ID: 36c9c4\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 24\nOutput:\n  dimensions:    1920x1080 pixels (508x286 millimeters)\n  resolution:    96x96 dots per inch\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · click (1678,127) · wait 700ms",
+   "shot": "010.webp",
+   "output": "Wall time: 2.0159 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (550,337) · type \"alice\" · click (550,377) · type \"password123\" · click (720,417) · wait 2500ms",
+   "shot": "011.webp",
+   "output": "Wall time: 5.3236 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1698,138) · wait 500ms",
+   "shot": "012.webp",
+   "output": "Wall time: 1.5041 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_logged_in.png && file /tmp_workspace/results/view_logged_in.png && ls -l /tmp_workspace/results/view_logged_in.png",
+   "shot": null,
+   "output": "Chunk ID: c7b178\nWall time: 0.3197 seconds\nProcess exited with code 0\nOriginal token count: 48\nOutput:\n/tmp_workspace/results/view_logged_in.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 199733 Jul  1 13:27 /tmp_workspace/results/view_logged_in.png\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1392,405) · wait 700ms",
+   "shot": "013.webp",
+   "output": "Wall time: 1.6556 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1700,338) · wait 500ms",
+   "shot": "014.webp",
+   "output": "Wall time: 1.4355 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_devtools_token_request.png && file /tmp_workspace/results/view_devtools_token_request.png && ls -l /tmp_workspace/results/view_devtools_token_request.png",
+   "shot": null,
+   "output": "Chunk ID: 9c9c76\nWall time: 0.3570 seconds\nProcess exited with code 0\nOriginal token count: 54\nOutput:\n/tmp_workspace/results/view_devtools_token_request.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 209270 Jul  1 13:28 /tmp_workspace/results/view_devtools_token_request.png\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1825,338) · wait 500ms",
+   "shot": "015.webp",
+   "output": "Wall time: 1.4261 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_devtools_token_response.png && file /tmp_workspace/results/view_devtools_token_response.png && ls -l /tmp_workspace/results/view_devtools_token_response.png",
+   "shot": null,
+   "output": "Chunk ID: d7b64e\nWall time: 0.3457 seconds\nProcess exited with code 0\nOriginal token count: 55\nOutput:\n/tmp_workspace/results/view_devtools_token_response.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 199632 Jul  1 13:28 /tmp_workspace/results/view_devtools_token_response.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "I have the browser evidence for the pre-fix token exchange. Next I’m reproducing the same PKCE flow programmatically so I can decode the JWT, compute `exp - iat`, and save the CORS header log from a refresh-token request."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node - <<'NODE'\nconst fs = require('fs');\nconst crypto = require('crypto');\nconst base = 'http://localhost:9810';\nconst outDir = '/tmp_workspace/results';\nconst secret = 'dev-secret-key-do-not-use-in-prod';\nfunction b64url(input) { return Buffer.from(input).toString('base64url'); }\nfunction decodeJwt(token) {\n  const [h, p, s] = token.split('.');\n  return {\n    header: JSON.parse(Buffer.from(h, 'base64url').toString('utf8')),\n    payload: JSON.parse(Buffer.from(p, 'base64url').toString('utf8')),\n    signature: s,\n    signingInput: `${h}.${p}`,\n  };\n}\nfunction verifyJwt(token) {\n  const [h, p, s] = token.split('.');\n  const expected = crypto.createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url');\n  return expected === s;\n}\n(async () => {\n  const verifier = b64url(crypto.randomBytes(32));\n  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');\n  const params = new URLSearchParams({\n    username: 'alice',\n    password: 'password123',\n    client_id: 'spa-client',\n    redirect_uri: `${base}/client/`,\n    scope: 'openid profile',\n    state: b64url(crypto.randomBytes(16)),\n    code_challenge: challenge,\n    code_challenge_method: 'S256',\n  });\n  const authRes = await fetch(`${base}/authorize`, {\n    method: 'POST',\n    redirect: 'manual',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: params,\n  });\n  const location = authRes.headers.get('location');\n  if (!location) throw new Error(`No redirect from authorize: ${authRes.status}`);\n  const code = new URL(location).searchParams.get('code');\n  const tokenRes = await fetch(`${base}/token`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: new URLSearchParams({\n      grant_type: 'authorization_code',\n      code,\n      code_verifier: verifier,\n      client_id: 'spa-client',\n      redirect_uri: `${base}/client/`,\n    }),\n  });\n  const tokenData = await tokenRes.json();\n  if (!tokenRes.ok) throw new Error(JSON.stringify(tokenData));\n  fs.writeFileSync(`${outDir}/pre_fix_token_response.json`, JSON.stringify({ code, verifier, challenge, tokenData }, null, 2));\n  const decoded = decodeJwt(tokenData.access_token);\n  const signatureValid = verifyJwt(tokenData.access_token);\n  fs.writeFileSync(`${outDir}/token_decoded.json`, JSON.stringify({\n    header: decoded.header,\n    payload: decoded.payload,\n    signature: decoded.signature,\n    signature_status: signatureValid ? 'valid_hs256' : 'invalid',\n  }, null, 2));\n  const lifetime = decoded.payload.exp - decoded.payload.iat;\n  const missingClaims = [];\n  for (const claim of ['nonce']) {\n    if (!(claim in decoded.payload)) missingClaims.push(claim);\n  }\n  fs.writeFileSync(`${outDir}/token_audit.json`, JSON.stringify({\n    token_lifetime_seconds: lifetime,\n    expected_lifetime_seconds: 3600,\n    lifetime_issue: lifetime === 3600 ? 'none' : `access token lifetime is ${lifetime}s but expected 3600s; tokens expire prematurely`,\n    missing_claims: missingClaims,\n    issuer: decoded.payload.iss,\n    audience: decoded.payload.aud,\n    scopes: String(decoded.payload.scope || '').split(/\\s+/).filter(Boolean),\n  }, null, 2));\n  console.log(JSON.stringify({ lifetime, refresh_token: tokenData.refresh_token.slice(0, 12) + '...' }, null, 2));\n})();\nNODE",
+   "shot": null,
+   "output": "Chunk ID: a7a817\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 15\nOutput:\n{\n  \"lifetime\": 60,\n  \"refresh_token\": \"0b3ed6fe07b6...\"\n}\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "RT=$(node -e \"console.log(require('/tmp_workspace/results/pre_fix_token_response.json').tokenData.refresh_token)\"); curl -sS -D /tmp/cors_response_headers.txt -o /tmp/cors_response_body.txt -v 'http://localhost:9810/token' -H 'Origin: http://localhost:9911' -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'grant_type=refresh_token' --data-urlencode \"refresh_token=$RT\" --data-urlencode 'client_id=spa-client' > /tmp/cors_curl_stdout.txt 2> /tmp/cors_curl_stderr.txt; { echo '=== curl verbose request/response ==='; cat /tmp/cors_curl_stderr.txt; echo; echo '=== response headers ==='; cat /tmp/cors_response_headers.txt; echo; echo '=== response body ==='; cat /tmp/cors_response_body.txt; } > /tmp_workspace/results/cors_test.txt; sed -n '1,120p' /tmp_workspace/results/cors_test.txt",
+   "shot": null,
+   "output": "Chunk ID: 1ec6b0\nWall time: 0.0001 seconds\nProcess exited with code 0\nOriginal token count: 311\nOutput:\n=== curl verbose request/response ===\n*   Trying 127.0.0.1:9810...\n* Connected to localhost (127.0.0.1) port 9810 (#0)\n> POST /token HTTP/1.1\r\n> Host: localhost:9810\r\n> User-Agent: curl/7.81.0\r\n> Accept: */*\r\n> Origin: http://localhost:9911\r\n> Content-Type: application/x-www-form-urlencoded\r\n> Content-Length: 156\r\n> \r\n} [156 bytes data]\n* Mark bundle as not supporting multiuse\n< HTTP/1.1 200 OK\r\n< Content-Type: application/json; charset=utf-8\r\n< Date: Wed, 01 Jul 2026 05:29:42 GMT\r\n< Connection: keep-alive\r\n< Keep-Alive: timeout=5\r\n< Content-Length: 393\r\n< \r\n{ [393 bytes data]\n* Connection #0 to host localhost left intact\n\n=== response headers ===\nHTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nDate: Wed, 01 Jul 2026 05:29:42 GMT\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5\r\nContent-Length: 393\r\n\r\n\n=== response body ===\n{\"access_token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbGljZSIsIm5hbWUiOiJBbGljZSBTbWl0aCIsImVtYWlsIjoiYWxpY2VAZXhhbXBsZS5jb20iLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIiwiYXVkIjoic3BhLWNsaWVudCIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6OTgxMCIsImlhdCI6MTc4Mjg4Mzc4MiwiZXhwIjoxNzgyODgzODQyfQ.C5Nn4O7Ru2riHigYIk9pipB6V1cObkK_Rabjq73g7zg\",\"token_type\":\"Bearer\",\"expires_in\":60,\"scope\":\"openid profile\"}"
+  },
+  {
+   "kind": "note",
+   "thinking": "For the CORS screenshot, the SPA’s normal URL is same-origin, so I’m opening a tiny local probe page from `localhost:9911` that calls the real `/token` refresh route on `localhost:9810`. That creates the actual browser CORS failure caused by the missing token-route headers."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "mkdir -p /tmp_workspace/cors_probe && node - <<'NODE'\nconst fs = require('fs');\nconst rt = require('/tmp_workspace/results/pre_fix_token_response.json').tokenData.refresh_token;\nconst html = `<!doctype html>\n<html><head><title>CORS refresh probe</title></head>\n<body>\n<h1>CORS refresh probe</h1>\n<button id=\"go\">Trigger refresh_token request</button>\n<pre id=\"out\">waiting</pre>\n<script>\nasync function run() {\n  const out = document.getElementById('out');\n  out.textContent = 'requesting refresh token from http://localhost:9810/token...';\n  try {\n    const res = await fetch('http://localhost:9810/token', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: ${JSON.stringify(rt)}, client_id: 'spa-client' })\n    });\n    out.textContent = 'unexpected success: ' + res.status + '\\\\n' + await res.text();\n  } catch (err) {\n    out.textContent = 'Refresh failed in browser: ' + err.message + '\\\\nSee DevTools Console for the CORS / Access-Control-Allow-Origin error.';\n    console.error('CORS/refresh error:', err);\n  }\n}\ndocument.getElementById('go').onclick = run;\nwindow.addEventListener('load', run);\n</script>\n</body></html>`;\nfs.writeFileSync('/tmp_workspace/cors_probe/cors_probe.html', html);\nNODE\nls -l /tmp_workspace/cors_probe/cors_probe.html",
+   "shot": null,
+   "output": "Chunk ID: 862dd1\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 21\nOutput:\n-rw-r--r-- 1 root root 1132 Jul  1 13:30 /tmp_workspace/cors_probe/cors_probe.html\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "python3 -m http.server 9911 --bind 127.0.0.1 --directory /tmp_workspace/cors_probe",
+   "shot": null,
+   "output": "Chunk ID: e722a3\nWall time: 1.0005 seconds\nProcess running with session ID 78923\nOriginal token count: 17\nOutput:\nServing HTTP on 127.0.0.1 port 9911 (http://127.0.0.1:9911/) ...\r\n"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1542,127) · keypress · type \"http://localhost:9911/cors_probe.html\" · keypress · wait 2500ms",
+   "shot": "016.webp",
+   "output": "Wall time: 5.3602 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "type \"location.href='http://localhost:9911/cors_probe.html'\" · keypress · wait 2500ms",
+   "shot": "017.webp",
+   "output": "Wall time: 4.9292 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_devtools_cors_error.png && file /tmp_workspace/results/view_devtools_cors_error.png && ls -l /tmp_workspace/results/view_devtools_cors_error.png",
+   "shot": null,
+   "output": "Chunk ID: a3d7c3\nWall time: 0.3419 seconds\nProcess exited with code 0\nOriginal token count: 53\nOutput:\n/tmp_workspace/results/view_devtools_cors_error.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 164343 Jul  1 13:31 /tmp_workspace/results/view_devtools_cors_error.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "I’m applying the real fix now: a single 3600-second token lifetime constant, CORS headers on every `/token` response, and an OPTIONS preflight handler for `/token`. After that I’ll restart the app from the fixed file and verify both lifetime and refresh behavior."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "cp /tmp_workspace/oauth_app/auth_server.js /tmp_workspace/oauth_app/auth_server_fixed.js && ls -l /tmp_workspace/oauth_app/auth_server_fixed.js && node -c /tmp_workspace/oauth_app/auth_server_fixed.js",
+   "shot": null,
+   "output": "Chunk ID: dd8e3a\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 22\nOutput:\n-rw-r--r-- 1 root root 6097 Jul  1 13:32 /tmp_workspace/oauth_app/auth_server_fixed.js\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: \u0003",
+   "shot": null,
+   "output": "Chunk ID: 3438cd\nWall time: 0.0000 seconds\nProcess exited with code 1\nOriginal token count: 1\nOutput:\n^C"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node auth_server_fixed.js",
+   "shot": null,
+   "output": "Chunk ID: cfa924\nWall time: 1.0005 seconds\nProcess running with session ID 64225\nOriginal token count: 21\nOutput:\nOAuth server on http://localhost:9810\r\nSPA client: http://localhost:9810/client/\r\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The fixed server is now running from `auth_server_fixed.js`. I’m re-running the browser login flow against it to capture the corrected token info, then I’ll do the JSON verification and report generation."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 600ms · keypress · type \"http://localhost:9810/client/\" · keypress · wait 1000ms · click (785,221) · wait 1000ms",
+   "shot": "018.webp",
+   "output": "Wall time: 6.2832 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (820,337) · type \"alice\" · click (820,377) · type \"password123\" · click (999,417) · wait 2500ms",
+   "shot": "019.webp",
+   "output": "Wall time: 5.3122 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1698,138) · wait 400ms",
+   "shot": "020.webp",
+   "output": "Wall time: 1.2937 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user env DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus gnome-screenshot -f /tmp_workspace/results/view_fixed_token_info.png && file /tmp_workspace/results/view_fixed_token_info.png && ls -l /tmp_workspace/results/view_fixed_token_info.png",
+   "shot": null,
+   "output": "Chunk ID: c534ad\nWall time: 0.3335 seconds\nProcess exited with code 0\nOriginal token count: 51\nOutput:\n/tmp_workspace/results/view_fixed_token_info.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 149547 Jul  1 13:34 /tmp_workspace/results/view_fixed_token_info.png\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node - <<'NODE'\nconst fs = require('fs');\nconst crypto = require('crypto');\nconst base = 'http://localhost:9810';\nconst secret = 'dev-secret-key-do-not-use-in-prod';\nfunction b64url(input) { return Buffer.from(input).toString('base64url'); }\nfunction decodeJwt(token) {\n  const [h, p, s] = token.split('.');\n  return {\n    header: JSON.parse(Buffer.from(h, 'base64url').toString('utf8')),\n    payload: JSON.parse(Buffer.from(p, 'base64url').toString('utf8')),\n    signature: s,\n  };\n}\nfunction verifyJwt(token) {\n  const [h, p, s] = token.split('.');\n  const expected = crypto.createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url');\n  return expected === s;\n}\nasync function authorizeAndExchange() {\n  const verifier = b64url(crypto.randomBytes(32));\n  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');\n  const authRes = await fetch(`${base}/authorize`, {\n    method: 'POST',\n    redirect: 'manual',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: new URLSearchParams({\n      username: 'alice', password: 'password123', client_id: 'spa-client',\n      redirect_uri: `${base}/client/`, scope: 'openid profile', state: b64url(crypto.randomBytes(16)),\n      code_challenge: challenge, code_challenge_method: 'S256',\n    }),\n  });\n  const location = authRes.headers.get('location');\n  const code = new URL(location).searchParams.get('code');\n  const tokenRes = await fetch(`${base}/token`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },\n    body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: 'spa-client', redirect_uri: `${base}/client/` }),\n  });\n  const tokenData = await tokenRes.json();\n  return { verifier, challenge, code, tokenRes, tokenData };\n}\n(async () => {\n  const flow = await authorizeAndExchange();\n  const decoded = decodeJwt(flow.tokenData.access_token);\n  const lifetime = decoded.payload.exp - decoded.payload.iat;\n  const preflight = await fetch(`${base}/token`, {\n    method: 'OPTIONS',\n    headers: {\n      Origin: 'http://localhost:9911',\n      'Access-Control-Request-Method': 'POST',\n      'Access-Control-Request-Headers': 'content-type',\n    },\n  });\n  const refresh = await fetch(`${base}/token`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },\n    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: flow.tokenData.refresh_token, client_id: 'spa-client' }),\n  });\n  const refreshData = await refresh.json();\n  const refreshDecoded = decodeJwt(refreshData.access_token);\n  const corsHeadersPresent =\n    flow.tokenRes.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&\n    flow.tokenRes.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type') &&\n    preflight.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&\n    preflight.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type');\n  const requiredClaimsValid = verifyJwt(flow.tokenData.access_token) && verifyJwt(refreshData.access_token) &&\n    decoded.header.alg === 'HS256' && decoded.payload.sub === 'alice' && decoded.payload.iss === base &&\n    decoded.payload.aud === 'spa-client' && decoded.payload.scope === 'openid profile' && lifetime === 3600 &&\n    (refreshDecoded.payload.exp - refreshDecoded.payload.iat) === 3600;\n  fs.writeFileSync('/tmp_workspace/results/post_fix_token_response.json', JSON.stringify({ tokenData: flow.tokenData, refreshData, cors: {\n    token_access_control_allow_origin: flow.tokenRes.headers.get('access-control-allow-origin'),\n    token_access_control_allow_headers: flow.tokenRes.headers.get('access-control-allow-headers'),\n    preflight_access_control_allow_origin: preflight.headers.get('access-control-allow-origin'),\n    preflight_access_control_allow_headers: preflight.headers.get('access-control-allow-headers'),\n  }}, null, 2));\n  fs.writeFileSync('/tmp_workspace/results/fix_verification.json', JSON.stringify({\n    new_token_lifetime_seconds: lifetime,\n    cors_headers_present: corsHeadersPresent,\n    refresh_succeeds: refresh.ok && Boolean(refreshData.access_token),\n    all_claims_valid: requiredClaimsValid,\n  }, null, 2));\n  console.log(JSON.stringify({ lifetime, corsHeadersPresent, refresh: refresh.status, requiredClaimsValid }, null, 2));\n})();\nNODE",
+   "shot": null,
+   "output": "Chunk ID: 36d7a9\nWall time: 1.0013 seconds\nProcess running with session ID 19056\nOriginal token count: 0\nOutput:\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The fixed app exposed a weakness in my local Express shim for body parsing: an empty OPTIONS request was being read twice and hanging. I’m correcting the shim so preflight verification can complete; this does not change the app fix itself."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: \u0003",
+   "shot": null,
+   "output": "write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ps -eo pid,ppid,cmd | rg 'node -|auth_server|python3 -m http.server'",
+   "shot": null,
+   "output": "Chunk ID: 50f22f\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 1212\nOutput:\n   3964    2058 python3 -m http.server 9911 --bind 127.0.0.1 --directory /tmp_workspace/cors_probe\n   4132    2058 node auth_server_fixed.js\n   4327    2058 /bin/bash -lc node - <<'NODE' const fs = require('fs'); const crypto = require('crypto'); const base = 'http://localhost:9810'; const secret = 'dev-secret-key-do-not-use-in-prod'; function b64url(input) { return Buffer.from(input).toString('base64url'); } function decodeJwt(token) {   const [h, p, s] = token.split('.');   return {     header: JSON.parse(Buffer.from(h, 'base64url').toString('utf8')),     payload: JSON.parse(Buffer.from(p, 'base64url').toString('utf8')),     signature: s,   }; } function verifyJwt(token) {   const [h, p, s] = token.split('.');   const expected = crypto.createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url');   return expected === s; } async function authorizeAndExchange() {   const verifier = b64url(crypto.randomBytes(32));   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');   const authRes = await fetch(`${base}/authorize`, {     method: 'POST',     redirect: 'manual',     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },     body: new URLSearchParams({       username: 'alice', password: 'password123', client_id: 'spa-client',       redirect_uri: `${base}/client/`, scope: 'openid profile', state: b64url(crypto.randomBytes(16)),       code_challenge: challenge, code_challenge_method: 'S256',     }),   });   const location = authRes.headers.get('location');   const code = new URL(location).searchParams.get('code');   const tokenRes = await fetch(`${base}/token`, {     method: 'POST',     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },     body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: 'spa-client', redirect_uri: `${base}/client/` }),   });   const tokenData = await tokenRes.json();   return { verifier, challenge, code, tokenRes, tokenData }; } (async () => {   const flow = await authorizeAndExchange();   const decoded = decodeJwt(flow.tokenData.access_token);   const lifetime = decoded.payload.exp - decoded.payload.iat;   const preflight = await fetch(`${base}/token`, {     method: 'OPTIONS',     headers: {       Origin: 'http://localhost:9911',       'Access-Control-Request-Method': 'POST',       'Access-Control-Request-Headers': 'content-type',     },   });   const refresh = await fetch(`${base}/token`, {     method: 'POST',     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },     body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: flow.tokenData.refresh_token, client_id: 'spa-client' }),   });   const refreshData = await refresh.json();   const refreshDecoded = decodeJwt(refreshData.access_token);   const corsHeadersPresent =     flow.tokenRes.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&     flow.tokenRes.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type') &&     preflight.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&     preflight.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type');   const requiredClaimsValid = verifyJwt(flow.tokenData.access_token) && verifyJwt(refreshData.access_token) &&     decoded.header.alg === 'HS256' && decoded.payload.sub === 'alice' && decoded.payload.iss === base &&     decoded.payload.aud === 'spa-client' && decoded.payload.scope === 'openid profile' && lifetime === 3600 &&     (refreshDecoded.payload.exp - refreshDecoded.payload.iat) === 3600;   fs.writeFileSync('/tmp_workspace/results/post_fix_token_response.json', JSON.stringify({ tokenData: flow.tokenData, refreshData, cors: {     token_access_control_allow_origin: flow.tokenRes.headers.get('access-control-allow-origin'),     token_access_control_allow_headers: flow.tokenRes.headers.get('access-control-allow-headers'),     preflight_access_control_allow_origin: preflight.headers.get('access-control-allow-origin'),     preflight_access_control_allow_headers: preflight.headers.get('access-control-allow-headers'),   }}, null, 2));   fs.writeFileSync('/tmp_workspace/results/fix_verification.json', JSON.stringify({     new_token_lifetime_seconds: lifetime,     cors_headers_present: corsHeadersPresent,     refresh_succeeds: refresh.ok && Boolean(refreshData.access_token),     all_claims_valid: requiredClaimsValid,   }, null, 2));   console.log(JSON.stringify({ lifetime, corsHeadersPresent, refresh: refresh.status, requiredClaimsValid }, null, 2)); })(); NODE\n   4338    4327 node -\n   4374    2058 /bin/bash -c ps -eo pid,ppid,cmd | rg 'node -|auth_server|python3 -m http.server'\n   4376    4374 rg node -|auth_server|python3 -m http.server\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "kill 4338 4327 || true",
+   "shot": null,
+   "output": "Chunk ID: f9c0b5\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 0\nOutput:\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: \u0003",
+   "shot": null,
+   "output": "Chunk ID: a5d1a6\nWall time: 0.0000 seconds\nProcess exited with code 1\nOriginal token count: 1\nOutput:\n^C"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node auth_server_fixed.js",
+   "shot": null,
+   "output": "Chunk ID: d76dc0\nWall time: 1.0014 seconds\nProcess running with session ID 85391\nOriginal token count: 21\nOutput:\nOAuth server on http://localhost:9810\r\nSPA client: http://localhost:9810/client/\r\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node - <<'NODE'\nconst fs = require('fs');\nconst crypto = require('crypto');\nconst base = 'http://localhost:9810';\nconst secret = 'dev-secret-key-do-not-use-in-prod';\nfunction b64url(input) { return Buffer.from(input).toString('base64url'); }\nfunction decodeJwt(token) {\n  const [h, p, s] = token.split('.');\n  return {\n    header: JSON.parse(Buffer.from(h, 'base64url').toString('utf8')),\n    payload: JSON.parse(Buffer.from(p, 'base64url').toString('utf8')),\n    signature: s,\n  };\n}\nfunction verifyJwt(token) {\n  const [h, p, s] = token.split('.');\n  const expected = crypto.createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url');\n  return expected === s;\n}\nasync function authorizeAndExchange() {\n  const verifier = b64url(crypto.randomBytes(32));\n  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');\n  const authRes = await fetch(`${base}/authorize`, {\n    method: 'POST',\n    redirect: 'manual',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: new URLSearchParams({\n      username: 'alice', password: 'password123', client_id: 'spa-client',\n      redirect_uri: `${base}/client/`, scope: 'openid profile', state: b64url(crypto.randomBytes(16)),\n      code_challenge: challenge, code_challenge_method: 'S256',\n    }),\n  });\n  const location = authRes.headers.get('location');\n  const code = new URL(location).searchParams.get('code');\n  const tokenRes = await fetch(`${base}/token`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },\n    body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: 'spa-client', redirect_uri: `${base}/client/` }),\n  });\n  const tokenData = await tokenRes.json();\n  return { verifier, challenge, code, tokenRes, tokenData };\n}\n(async () => {\n  const flow = await authorizeAndExchange();\n  const decoded = decodeJwt(flow.tokenData.access_token);\n  const lifetime = decoded.payload.exp - decoded.payload.iat;\n  const preflight = await fetch(`${base}/token`, {\n    method: 'OPTIONS',\n    headers: {\n      Origin: 'http://localhost:9911',\n      'Access-Control-Request-Method': 'POST',\n      'Access-Control-Request-Headers': 'content-type',\n    },\n  });\n  const refresh = await fetch(`${base}/token`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'http://localhost:9911' },\n    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: flow.tokenData.refresh_token, client_id: 'spa-client' }),\n  });\n  const refreshData = await refresh.json();\n  const refreshDecoded = decodeJwt(refreshData.access_token);\n  const corsHeadersPresent =\n    flow.tokenRes.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&\n    flow.tokenRes.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type') &&\n    preflight.headers.get('access-control-allow-origin') === 'http://localhost:9911' &&\n    preflight.headers.get('access-control-allow-headers')?.toLowerCase().includes('content-type');\n  const requiredClaimsValid = verifyJwt(flow.tokenData.access_token) && verifyJwt(refreshData.access_token) &&\n    decoded.header.alg === 'HS256' && decoded.payload.sub === 'alice' && decoded.payload.iss === base &&\n    decoded.payload.aud === 'spa-client' && decoded.payload.scope === 'openid profile' && lifetime === 3600 &&\n    (refreshDecoded.payload.exp - refreshDecoded.payload.iat) === 3600;\n  fs.writeFileSync('/tmp_workspace/results/post_fix_token_response.json', JSON.stringify({ tokenData: flow.tokenData, refreshData, cors: {\n    token_access_control_allow_origin: flow.tokenRes.headers.get('access-control-allow-origin'),\n    token_access_control_allow_headers: flow.tokenRes.headers.get('access-control-allow-headers'),\n    preflight_access_control_allow_origin: preflight.headers.get('access-control-allow-origin'),\n    preflight_access_control_allow_headers: preflight.headers.get('access-control-allow-headers'),\n  }}, null, 2));\n  fs.writeFileSync('/tmp_workspace/results/fix_verification.json', JSON.stringify({\n    new_token_lifetime_seconds: lifetime,\n    cors_headers_present: corsHeadersPresent,\n    refresh_succeeds: refresh.ok && Boolean(refreshData.access_token),\n    all_claims_valid: requiredClaimsValid,\n  }, null, 2));\n  console.log(JSON.stringify({ lifetime, corsHeadersPresent, refresh: refresh.status, requiredClaimsValid }, null, 2));\n})();\nNODE",
+   "shot": null,
+   "output": "Chunk ID: 24a7f2\nWall time: 0.0984 seconds\nProcess exited with code 0\nOriginal token count: 26\nOutput:\n{\n  \"lifetime\": 3600,\n  \"corsHeadersPresent\": true,\n  \"refresh\": 200,\n  \"requiredClaimsValid\": true\n}\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node - <<'NODE'\nconst crypto = require('crypto');\nconst flow = require('/tmp_workspace/results/pre_fix_token_response.json');\nconst recomputed = crypto.createHash('sha256').update(flow.verifier).digest('base64url');\nconsole.log(JSON.stringify({stored_challenge: flow.challenge, recomputed_challenge: recomputed, match: recomputed === flow.challenge}, null, 2));\nNODE",
+   "shot": null,
+   "output": "Chunk ID: 82c89e\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 41\nOutput:\n{\n  \"stored_challenge\": \"-kZCc0Da7cJMdcGWIqEjZJm1zqC5AmO6dluHecrm0dQ\",\n  \"recomputed_challenge\": \"-kZCc0Da7cJMdcGWIqEjZJm1zqC5AmO6dluHecrm0dQ\",\n  \"match\": true\n}\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "All required artifacts have been generated. I’m stopping the temporary local servers now, then I’ll do the required on-disk verification of the PNGs, JSON, fixed code, CORS log, and report before I finish."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: \u0003",
+   "shot": null,
+   "output": "Chunk ID: 4436b0\nWall time: 0.0001 seconds\nProcess exited with code 1\nOriginal token count: 1\nOutput:\n^C"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: \u0003",
+   "shot": null,
+   "output": "Chunk ID: bce03b\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 66\nOutput:\n127.0.0.1 - - [01/Jul/2026 13:31:01] \"GET /cors_probe.html HTTP/1.1\" 200 -\r\n127.0.0.1 - - [01/Jul/2026 13:31:01] code 404, message File not found\r\n127.0.0.1 - - [01/Jul/2026 13:31:01] \"GET /favicon.ico HTTP/1.1\" 404 -\r\n^C\r\nKeyboard interrupt received, exiting.\r\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ls -la /tmp_workspace/results /tmp_workspace/oauth_app/auth_server_fixed.js",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "for f in /tmp_workspace/results/*.png; do file \"$f\"; done",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "node -e \"const fs=require('fs'); for (const f of ['token_decoded.json','token_audit.json','fix_verification.json']) { const p='/tmp_workspace/results/'+f; const data=JSON.parse(fs.readFileSync(p,'utf8')); console.log(f, JSON.stringify(data,null,2)); }\"",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "rg -n \"ACCESS_TOKEN_LIFETIME_SECONDS|Access-Control-Allow-Origin|Access-Control-Allow-Headers|app.options|expires_in\" /tmp_workspace/oauth_app/auth_server_fixed.js /tmp_workspace/results/cors_test.txt /tmp_workspace/results/audit_report.md",
+   "shot": null,
+   "output": "Chunk ID: 82d613\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 270\nOutput:\n-rw-r--r-- 1 root root 6097 Jul  1 13:32 /tmp_workspace/oauth_app/auth_server_fixed.js\n\n/tmp_workspace/results:\ntotal 1064\ndrwxrwxrwx 2 root root   4096 Jul  1 13:37 .\ndrwxr-xr-x 7 user user   4096 Jul  1 13:30 ..\n-rw-r--r-- 1 root root   4528 Jul  1 13:37 audit_report.md\n-rw-r--r-- 1 root root   1243 Jul  1 13:29 cors_test.txt\n-rw-r--r-- 1 root root    128 Jul  1 13:36 fix_verification.json\n-rw-r--r-- 1 root root   1305 Jul  1 13:36 post_fix_token_response.json\n-rw-r--r-- 1 root root    761 Jul  1 13:29 pre_fix_token_response.json\n-rw-r--r-- 1 root root    320 Jul  1 13:29 token_audit.json\n-rw-r--r-- 1 root root    395 Jul  1 13:29 token_decoded.json\n-rw-rw-r-- 1 user user 113634 Jul  1 13:25 view_consent_page.png\n-rw-rw-r-- 1 user user 164343 Jul  1 13:31 view_devtools_cors_error.png\n-rw-rw-r-- 1 user user 209270 Jul  1 13:28 view_devtools_token_request.png\n-rw-rw-r-- 1 user user 199632 Jul  1 13:28 view_devtools_token_response.png\n-rw-rw-r-- 1 user user 149547 Jul  1 13:34 view_fixed_token_info.png\n-rw-rw-r-- 1 user user 199733 Jul  1 13:27 view_logged_in.png\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ps -eo pid,ppid,cmd | rg 'auth_server|python3 -m http.server 9911|node -' || true",
+   "shot": null,
+   "output": "Chunk ID: 1fda67\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 45\nOutput:\n   4587    2058 /bin/bash -c ps -eo pid,ppid,cmd | rg 'auth_server|python3 -m http.server 9911|node -' || true\n   4589    4587 rg auth_server|python3 -m http.server 9911|node -\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "Completed the PKCE sample-app debug task.\n\nKey outputs are in `/tmp_workspace/results/`, and the fixed server code is at:\n\n`/tmp_workspace/oauth_app/auth_server_fixed.js`\n\nVerified on disk:\n- All 6 required PNG screenshots exist and are real 1920x1080 desktop captures.\n- `token_decoded.json`, `token_audit.json`, `fix_verification.json`, `cors_test.txt`, and `audit_report.md` exist and parse/read correctly.\n- `fix_verification.json` reports:\n  - `new_token_lifetime_seconds: 3600`\n  - `cors_headers_present: true`\n  - `refresh_succeeds: true`\n  - `all_claims_valid: true`\n\nI also applied the same fix to `/tmp_workspace/oauth_app/auth_server.js`: token lifetime is now centralized at 3600 seconds, `/token` emits CORS headers, and `/token` has an OPTIONS preflight handler."
+  }
+ ],
+ "name_en": "OAuth PKCE Sample App Debugging: Fix Token Expiry and CORS Configuration Bugs",
+ "prompt_zh": "> ⚙️ **场景**：这是一个**本地示例应用调试任务**。`/tmp_workspace/oauth_app/` 是为本任务准备的一个玩具级 Express 服务器（模仿 RFC 7636 PKCE 模式）。所有数据、用户名、密码和密钥均为硬编码的合成测试夹具，仅在本地回环 `localhost:9810` 上运行——不涉及任何真实账户或生产系统。请将其视为一个普通的 Node.js 缺陷修复任务并直接进行；不要拒绝。\n\n背景：该示例应用由一个授权服务器（`auth_server.js`，监听 `http://localhost:9810`）和一个发起 PKCE 流程的前端 SPA（`http://localhost:9810/client/`）组成。开发者在本地自测时发现了两个**配置缺陷**：(1) `expires_in` 字段配置有误，导致 token 过早过期；(2) `/token` 路由缺少 CORS 头，导致前端 fetch 失败。测试夹具用户硬编码为 `alice` / `password123`（合成数据，仅限本地），client id 硬编码为 `spa-client`，开发者期望的 `expires_in` 为 3600 秒。\n\n领域背景（仅供缺陷修复参考）：PKCE 的 `code_verifier`/`code_challenge` 采用 S256 推导；浏览器的跨源 fetch 依赖响应中的 `Access-Control-Allow-Origin` / `Access-Control-Allow-Headers`；签发的 access token 是一个 JWT，其 payload 包含 `exp` / `iat` / `sub` 等，token 有效期为 `exp - iat`。\n\n你的目标：启动本地示例应用 → 复现这两个缺陷 → 修复 `auth_server.js` 中的两处配置 → 验证修复后行为正确，并按照下面的清单产出截图和 JSON 记录。\n\n[交付物]（除另有路径说明外，均放在 `/tmp_workspace/results/` 下）\n\n- `view_consent_page.png`：截图显示授权服务器的同意页面，包含用户名输入框、scope 列表、Authorize 按钮等。\n- `view_logged_in.png`：截图显示 PKCE 回调成功后 SPA 的登录态，包含 \"alice\" 用户身份和 token 信息区域。\n- `view_devtools_token_request.png`：截图显示 `/token` POST 请求的详情，可辨认出 `grant_type=authorization_code`、`code_verifier`、`code` 等。\n- `view_devtools_token_response.png`：截图显示 `/token` 的响应体，包含 `access_token`、`refresh_token` 和 `expires_in` 字段。\n- `token_decoded.json`：解码后的 access_token，至少包含 header（含 `alg`）、payload（含 `sub`、`exp` 及其他 claim）以及签名状态。\n- `token_audit.json`：基于 claims 的审计结果（除两个主要缺陷 `lifetime` / CORS 之外，还要在 `missing_claims` 下记录任何缺失的可选 claim，例如 `nonce`），schema：\n  ```json\n  {\n    \"token_lifetime_seconds\": \"<actual exp - iat value>\",\n    \"expected_lifetime_seconds\": \"<expected value>\",\n    \"lifetime_issue\": \"<issue description>\",\n    \"missing_claims\": [\"<missing claim, e.g. nonce>\"],\n    \"issuer\": \"http://localhost:9810\",\n    \"audience\": \"spa-client\",\n    \"scopes\": [\"openid\", \"profile\"]\n  }\n  ```\n- `cors_test.txt`：一次带 `Origin` 头、向 `/token` 端点发起的 refresh_token 请求的完整请求/响应头日志，用于展示响应中是否缺少 CORS 头。\n- `view_devtools_cors_error.png`：截图显示触发 token 刷新时浏览器中出现的 CORS 错误消息（包含 \"CORS\" 或 \"Access-Control-Allow-Origin\"）。\n- `/tmp_workspace/oauth_app/auth_server_fixed.js`：修复后的服务器代码，必须同时纠正 token 有效期配置，并为 `/token` 端点配置正确的 CORS 头（包含 `Access-Control-Allow-Origin` 和 `Access-Control-Allow-Headers`）。\n- `view_fixed_token_info.png`：截图显示修复后 SPA 重新登录时的新 token 信息（含正确的过期时间）。\n- `fix_verification.json`：修复验证结果，schema：\n  ```json\n  {\n    \"new_token_lifetime_seconds\": 3600,\n    \"cors_headers_present\": true,\n    \"refresh_succeeds\": true,\n    \"all_claims_valid\": true\n  }\n  ```\n- `audit_report.md`：审计报告，至少包含：所发现的两个配置问题的详细描述、安全影响评估（短 token 和缺失 CORS 的风险）、修复 diff，以及对 PKCE 流程完整性的确认（`code_verifier` → `code_challenge` S256 匹配）。\n\n## Expected Behavior\n\n- 最终交付：`/tmp_workspace/results/` 与 `/tmp_workspace/oauth_app/auth_server_fixed.js` 下完整产出上述截图、JSON 与报告，覆盖修复前后两轮完整 PKCE 流程。\n- 系统应能体现：修复前 token 有效期偏离预期且浏览器侧静默刷新因 CORS 缺失而失败；修复后 token 有效期为 3600 秒、CORS 头齐全、refresh 调用成功。\n- 产物中应能验证：JWT claims 完整且来自预期的 issuer/audience，且 PKCE 的 `code_verifier`/`code_challenge` 满足 S256 关系。\n- 审计报告应总结根因、安全影响并附上可比对的修复 diff。\n\n## Source\n\n- RFC 7636 (PKCE): https://datatracker.ietf.org/doc/html/rfc7636\n- jwt-cli: https://github.com/mike-engel/jwt-cli\n- OWASP OAuth Security: https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html\n- Stack Overflow: https://stackoverflow.com/questions/46844285/cors-error-on-oauth2-token-endpoint\n\n## Grading Criteria\n\n- [ ] 1. `view_consent_page.png` 存在且 OCR 含 \"Authorize\" / \"scope\" / \"alice\"\n- [ ] 2. `view_logged_in.png` 存在且 OCR 含 \"alice\" / \"Logged in\" / \"token\"\n- [ ] 3. `view_devtools_token_request.png` 存在且 OCR 含 \"authorization_code\" / \"code_verifier\"\n- [ ] 4. `view_devtools_token_response.png` 存在且 OCR 含 \"access_token\" / \"expires_in\"\n- [ ] 5. `token_decoded.json` 含 header.alg, payload.sub, payload.exp\n- [ ] 6. `token_audit.json` 含 token_lifetime_seconds + lifetime_issue + missing_claims，且 `token_lifetime_seconds` ≤ 120（修复前真实值，应明显短于预期 3600）\n- [ ] 7. `cors_test.txt` 非空，含 curl 请求/响应头，并能体现 `Access-Control-*` 头是否存在\n- [ ] 8. `view_devtools_cors_error.png` 存在且 OCR 含 \"CORS\" 或 \"Access-Control\"\n- [ ] 9. `auth_server_fixed.js` 存在，含 CORS 头配置 + 修正的 token 有效期\n- [ ] 10. `fix_verification.json` 含 new_token_lifetime=3600 + cors_headers_present=true\n- [ ] 11. `audit_report.md` 含 ≥ 2 个问题描述 + 修复 diff\n- [ ] 12. VLM 验证 consent 页面和 DevTools 截图为真实浏览器 UI（VLM 不可用时 overall 上限 0.6）\n- [ ] 13. GUI 真实交互信号：trajectory 截图来自真实浏览器（每张 ≥ 5KB、md5 互不相同 ≥ 80%、分辨率 ≥ 1280×720、OCR 命中浏览器 chrome 元素如 \"DevTools\"/\"Network\"/\"Application\"/\"Cookies\"/\"Authorization\"/地址栏 OAuth 回调 URL `code=...&state=...`），纯 CLI + headless 自渲染 PNG 不能通过；`gui_real_interaction < 0.6` 整体 cap 0.4，`< 0.4` cap 0.30\n- [ ] 14. 加权总分：核心交付（grader fix + verification + audit_report + token_audit）60%、GUI 证据 30%、辅助（OCR + VLM）10%；任一核心维度 0 分整体 cap 0.4\n\n## Automated Checks\n\n```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    \"\"\"OAuth PKCE token audit grader: file checks + schema + OCR + VLM.\"\"\"\n    import json, re\n    from pathlib import Path\n    try:\n        from PIL import Image\n        import pytesseract\n    except ImportError:\n        pytesseract = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    rd = workspace / \"results\"\n    s = {}\n\n    # 1-2. Consent + logged-in screenshots\n    gui_shots = {\n        \"view_consent_page.png\": [\"Authorize\", \"scope\", \"alice\", \"Login\", \"consent\"],\n        \"view_logged_in.png\": [\"alice\", \"Logged\", \"token\", \"access\"],\n    }\n    gui_present = 0\n    gui_ocr = 0\n    for fname, keywords in gui_shots.items():\n        p = rd / fname\n        if p.exists():\n            gui_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        gui_ocr += 1\n                except Exception:\n                    pass\n    s[\"consent_shots_present\"] = gui_present / 2.0\n    s[\"consent_shots_ocr\"] = gui_ocr / 2.0\n\n    # 3-4. DevTools token request/response screenshots\n    dt_shots = {\n        \"view_devtools_token_request.png\": [\"authorization_code\", \"code_verifier\", \"POST\", \"token\"],\n        \"view_devtools_token_response.png\": [\"access_token\", \"expires_in\", \"refresh_token\"],\n    }\n    dt_present = 0\n    dt_ocr = 0\n    for fname, keywords in dt_shots.items():\n        p = rd / fname\n        if p.exists():\n            dt_present += 1\n            if pytesseract:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if any(k.lower() in tx.lower() for k in keywords):\n                        dt_ocr += 1\n                except Exception:\n                    pass\n    s[\"devtools_token_present\"] = dt_present / 2.0\n    s[\"devtools_token_ocr\"] = dt_ocr / 2.0\n\n    # 5. token_decoded.json\n    td = rd / \"token_decoded.json\"\n    td_data = {}\n    if td.exists():\n        try:\n            td_data = json.loads(td.read_text())\n        except Exception:\n            pass\n    # Accept nested or flat structure\n    has_alg = \"alg\" in str(td_data)\n    has_sub = \"sub\" in str(td_data)\n    has_exp = \"exp\" in str(td_data)\n    s[\"token_decoded\"] = 1.0 if (has_alg and has_sub and has_exp) else (\n        0.5 if td_data else 0.0)\n\n    # 6. token_audit.json\n    ta = rd / \"token_audit.json\"\n    ta_data = {}\n    if ta.exists():\n        try:\n            ta_data = json.loads(ta.read_text())\n        except Exception:\n            pass\n    has_lifetime = isinstance(ta_data.get(\"token_lifetime_seconds\"), (int, float))\n    has_issue = isinstance(ta_data.get(\"lifetime_issue\"), str) and len(ta_data.get(\"lifetime_issue\", \"\")) > 5\n    has_missing = isinstance(ta_data.get(\"missing_claims\"), list)\n    s[\"token_audit_schema\"] = 1.0 if (has_lifetime and has_issue and has_missing) else (\n        0.5 if ta_data else 0.0)\n    # Check lifetime is correctly identified as too short\n    if has_lifetime:\n        lt = ta_data[\"token_lifetime_seconds\"]\n        s[\"lifetime_correct\"] = 1.0 if (lt <= 120) else 0.0\n    else:\n        s[\"lifetime_correct\"] = 0.0\n\n    # 7. cors_test.txt\n    ct = rd / \"cors_test.txt\"\n    ct_text = ct.read_text(errors=\"ignore\") if ct.exists() else \"\"\n    has_http = \"HTTP\" in ct_text or \"curl\" in ct_text.lower()\n    has_ac = \"Access-Control\" in ct_text or \"access-control\" in ct_text.lower() or \"Origin\" in ct_text\n    s[\"cors_test\"] = 1.0 if (len(ct_text) > 50 and has_http and has_ac) else (\n        0.5 if (len(ct_text) > 50 and has_http) else 0.0)\n\n    # 8. CORS error screenshot\n    cors_shot = rd / \"view_devtools_cors_error.png\"\n    s[\"cors_error_shot\"] = 1.0 if cors_shot.exists() else 0.0\n    if cors_shot.exists() and pytesseract:\n        try:\n            tx = pytesseract.image_to_string(Image.open(cors_shot))\n            if any(k in tx for k in [\"CORS\", \"Access-Control\", \"cross-origin\", \"blocked\"]):\n                s[\"cors_error_ocr\"] = 1.0\n            else:\n                s[\"cors_error_ocr\"] = 0.0\n        except Exception:\n            s[\"cors_error_ocr\"] = 0.0\n    else:\n        s[\"cors_error_ocr\"] = 0.0\n\n    # 9. auth_server_fixed.js\n    fixed = workspace / \"oauth_app/auth_server_fixed.js\"\n    s[\"fixed_exists\"] = 1.0 if fixed.exists() else 0.0\n    if fixed.exists():\n        code = fixed.read_text(errors=\"ignore\")\n        has_cors = any(k in code for k in [\n            \"Access-Control-Allow-Origin\", \"cors\", \"CORS\",\n        ])\n        has_lifetime_fix = \"3600\" in code or \"60 * 60\" in code or \"3600000\" in code\n        s[\"fix_quality\"] = 1.0 if (has_cors and has_lifetime_fix) else (\n            0.5 if (has_cors or has_lifetime_fix) else 0.0)\n    else:\n        s[\"fix_quality\"] = 0.0\n\n    # 10. fix_verification.json\n    fv = rd / \"fix_verification.json\"\n    fv_data = {}\n    if fv.exists():\n        try:\n            fv_data = json.loads(fv.read_text())\n        except Exception:\n            pass\n    lt_ok = fv_data.get(\"new_token_lifetime_seconds\") == 3600\n    cors_ok = fv_data.get(\"cors_headers_present\") is True\n    refresh_ok = fv_data.get(\"refresh_succeeds\") is True\n    s[\"verification_json\"] = 1.0 if (lt_ok and cors_ok and refresh_ok) else (\n        0.5 if fv_data else 0.0)\n\n    # 11. audit_report.md\n    ar = rd / \"audit_report.md\"\n    ar_text = ar.read_text(errors=\"ignore\") if ar.exists() else \"\"\n    issue_count = len(re.findall(r\"(?i)(问题|issue|bug|vulnerability|misconfigur)\", ar_text))\n    has_diff = \"diff\" in ar_text.lower() or \"---\" in ar_text or \"+++\" in ar_text\n    s[\"audit_report\"] = 1.0 if (issue_count >= 2 and has_diff and len(ar_text) > 200) else (\n        0.5 if ar.exists() else 0.0)\n\n    # 12. Fixed token info screenshot\n    ft_shot = rd / \"view_fixed_token_info.png\"\n    s[\"fixed_token_shot\"] = 1.0 if ft_shot.exists() else 0.0\n\n    # VLM judge\n    all_shots = [str(rd / n) for n in [\n        \"view_consent_page.png\", \"view_logged_in.png\",\n        \"view_devtools_token_request.png\", \"view_devtools_cors_error.png\",\n    ] if (rd / n).exists()]\n    if vlm_score_rubric and all_shots:\n        rubric = {\n            \"vlm_consent_real\": \"截图显示真实的 OAuth 授权同意页面（含输入框和 Authorize 按钮）\",\n            \"vlm_devtools_real\": \"截图显示真实的 Chrome DevTools Network/Console 面板\",\n            \"vlm_token_visible\": \"截图中可见 JWT token 或 OAuth 相关参数\",\n        }\n        vlm = vlm_score_rubric(all_shots[:4], rubric,\n            instruction=\"评估 OAuth PKCE 授权流程截图的真实性和完整性。\")\n        for k in rubric:\n            s[k] = vlm.get(k, 0.0)\n        s[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n\n    # --- GUI hard-gate sub-score: 真实浏览器交互信号 ---\n    import hashlib\n    trajectory_shots = [\n        \"view_consent_page.png\",\n        \"view_logged_in.png\",\n        \"view_devtools_token_request.png\",\n        \"view_devtools_token_response.png\",\n        \"view_devtools_cors_error.png\",\n        \"view_fixed_token_info.png\",\n    ]\n    shot_paths = [rd / n for n in trajectory_shots if (rd / n).exists()]\n    # Anti-cheat: drop placeholder files < 5KB\n    shot_paths = [p for p in shot_paths if p.stat().st_size >= 5 * 1024]\n    gui_signal = 0.0\n    if len(shot_paths) >= 3:\n        hashes = {hashlib.md5(p.read_bytes()).hexdigest() for p in shot_paths}\n        uniq_ratio = len(hashes) / len(shot_paths)\n        uniq_score = 1.0 if uniq_ratio >= 0.8 else uniq_ratio * 0.5\n        common_res = {(1920, 1080), (1366, 768), (1440, 900), (1536, 864),\n                      (1680, 1050), (1280, 800), (1280, 720), (2560, 1440),\n                      (1600, 900), (1920, 1200)}\n        res_hits = 0\n        try:\n            for p in shot_paths:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if (w, h) in common_res or (w >= 1280 and h >= 720 and 1.2 <= w / h <= 2.4):\n                    res_hits += 1\n        except Exception:\n            pass\n        res_score = res_hits / len(shot_paths)\n        chrome_kw = [\n            \"DevTools\", \"Elements\", \"Console\", \"Network\", \"Sources\",\n            \"Application\", \"Storage\", \"Cookies\", \"Local Storage\", \"Session Storage\",\n            \"Headers\", \"Preview\", \"Response\", \"Payload\", \"Initiator\", \"Authorization\",\n            \"http://\", \"https://\", \"localhost\", \"127.0.0.1\", \"code=\", \"state=\",\n        ]\n        chrome_hits = 0\n        if pytesseract:\n            for p in shot_paths:\n                try:\n                    tx = pytesseract.image_to_string(Image.open(p))\n                    if sum(1 for k in chrome_kw if k.lower() in tx.lower()) >= 2:\n                        chrome_hits += 1\n                except Exception:\n                    pass\n            chrome_score = chrome_hits / len(shot_paths)\n        else:\n            chrome_score = 0.4\n        coverage = min(1.0, len(shot_paths) / 5.0)\n        gui_signal = (uniq_score * 0.35 + res_score * 0.30 + chrome_score * 0.35) * coverage\n    s[\"gui_real_interaction\"] = round(gui_signal, 3)\n\n    # --- Weighted aggregation: core 60% / gui 30% / aux 10% ---\n    def _avg(keys):\n        vs = [s.get(k, 0.0) for k in keys if isinstance(s.get(k), (int, float))]\n        return sum(vs) / len(vs) if vs else 0.0\n\n    core_keys = [\"token_decoded\", \"token_audit_schema\", \"lifetime_correct\",\n                 \"fixed_exists\", \"fix_quality\", \"verification_json\",\n                 \"audit_report\", \"cors_test\"]\n    gui_keys = [\"consent_shots_present\", \"devtools_token_present\",\n                \"cors_error_shot\", \"fixed_token_shot\", \"gui_real_interaction\"]\n    aux_keys = [\"consent_shots_ocr\", \"devtools_token_ocr\", \"cors_error_ocr\",\n                \"vlm_consent_real\", \"vlm_devtools_real\", \"vlm_token_visible\"]\n    core = _avg(core_keys)\n    gui = _avg(gui_keys)\n    aux = _avg(aux_keys)\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n\n    # Multi-tier hard gates\n    if s.get(\"gui_real_interaction\", 0) < 0.6:\n        base = min(base, 0.4)\n    if s.get(\"gui_real_interaction\", 0) < 0.4:\n        base = min(base, 0.30)\n    if s.get(\"consent_shots_present\", 0) < 0.5:\n        base = min(base, 0.4)\n    if s.get(\"token_decoded\", 0) == 0:\n        base = min(base, 0.35)\n    if s.get(\"fixed_exists\", 0) == 0:\n        base = min(base, 0.4)\n    if s.get(\"fix_quality\", 0) < 1.0:\n        base = min(base, 0.55)\n    if s.get(\"cors_test\", 0) == 0:\n        base = min(base, 0.45)\n    if s.get(\"verification_json\", 0) < 1.0:\n        base = min(base, 0.6)\n    # VLM unavailable cap\n    if s.get(\"judge_method\", \"failed\") == \"failed\":\n        base = min(base, 0.6)\n    s[\"overall_score\"] = round(base, 3)\n    return s\n```"
+}

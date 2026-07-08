@@ -1,0 +1,318 @@
+{
+ "task_id": "DOC_task_1_latex_figure_overflow",
+ "category": "DOC",
+ "name": "修 LaTeX figure 出血 + 浮动错位 (TeXstudio + pdflatex)",
+ "model": "gpt-5.5",
+ "harness": "claudecode",
+ "score": 0.98875,
+ "is_hack": false,
+ "hack_confidence": 0.0,
+ "hack_patterns": [],
+ "dimensions": {
+  "task_completion": {
+   "score": 1.0,
+   "reason": "All required deliverables are present and the core user goal is achieved: artifact_check paper.pdf verifies fixed width and same page, proof.png visually confirms it, and report.md documents it."
+  },
+  "deliverable_correctness": {
+   "score": 1.0,
+   "reason": "Mean per-artifact correctness is 1.00 across paper.pdf, proof.png, and report.md; every atomic clause was satisfied with concrete evidence."
+  },
+  "deliverable_quality": {
+   "score": 1.0,
+   "reason": "paper.pdf parses as a valid 2-page PDF, proof.png is a large 1920x1080 PNG screenshot, and report.md is readable UTF-8 with all required fields."
+  },
+  "evidence_authenticity": {
+   "score": 1.0,
+   "reason": "No fabrication grep hits were found; chat shows genuine editing, pdflatex compilation, evince viewing, gnome-screenshot capture, and verification commands."
+  },
+  "tool_use_correctness": {
+   "score": 0.98,
+   "reason": "The rollout used appropriate tools: source edits, pdflatex rebuilds, PDF text inspection, a real PDF viewer, and screenshot capture. Minor inefficiency from an initial placement attempt before adding \\clearpage does not affect correctness."
+  },
+  "final_state_correctness": {
+   "score": 1.0,
+   "reason": "The final staged state matches the task: width=\\textwidth, [H] figure after the Discussion reference with \\clearpage, same-page PDF text, and visual proof with no overflow."
+  },
+  "efficiency_robustness": {
+   "score": 0.95,
+   "reason": "The agent recovered from the initial need for page adjustment, recompiled and visually verified; it used several GUI wait/screenshot steps but no harmful detours."
+  },
+  "instruction_following": {
+   "score": 0.98,
+   "reason": "It modified paper.tex, produced the required /results deliverables, and verified them. The final summary was harmless, though the task primarily asked for deliverables rather than prose."
+  }
+ },
+ "summary": "The rollout successfully fixed both planted LaTeX/PDF problems: the figure is scaled to \\textwidth and appears on the same page as the Discussion reference. All three required deliverables are present, valid, and supported by both text extraction and visual screenshot evidence, with no detected hack signals.",
+ "task_prompt": "`/tmp_workspace/paper.tex` compiles successfully, but the rendered PDF has two problems that **can only be detected by visual inspection**:\n\n1. **Figure 1 visually overflows the right margin** — the included image width is set incorrectly.\n2. **Figure 1 ends up on the wrong page** — the Discussion section says \"Figure 1 shows ...\", but the `Figure 1:` caption is actually rendered on an earlier page (because the figure float [t] places too eagerly and pushes the body text down).\n\nTask: Modify `/tmp_workspace/paper.tex` (this file only) so that (a) the figure no longer overflows the right margin; (b) the figure lands on the **same page** as the Discussion sentence \"Figure 1 shows ...\".\n\nDeliverables (write to `/tmp_workspace/results/`):\n\n- `paper.pdf` — the PDF re-compiled after the fix.\n- `proof.png` — a proof screenshot showing the figure and the \"Figure 1 shows ...\" paragraph on the same page, with the figure no longer overflowing the right margin.\n- `report.md`, which **must** contain:\n   - `width_token: <whatever you ended up writing for width=>`\n   - `same_page: yes`\n   - `tool_used: <name>`\n   - A description of at least 30 characters explaining the visual difference between the PDF before and after the fix.\n\n## Expected Behavior\n\n参考解题流程 (设计者参考, 不发给 agent):\n\n1. `cd /tmp_workspace && pdflatex -interaction=nonstopmode paper.tex` → 第一份有问题的 PDF。\n2. 看 PDF 确认 figure 出血 + figure 在错的页。\n3. 编辑 `paper.tex`(只改这一个文件):\n   - 把 `\\includegraphics` 的宽度调到不再溢出右边距。\n   - 让 figure 与 Discussion 的 \"Figure 1 shows ...\" 落到**同一页**(自行决定如何调整 figure 的浮动放置或位置)。\n4. 重新编译 → 看 PDF 确认两处都修好。\n5. `cp /tmp_workspace/paper.pdf /tmp_workspace/results/paper.pdf`。\n6. 截一张能看到 figure 与 \"Figure 1 shows ...\" 段落**同一页**的截图保存为 `/tmp_workspace/results/proof.png`。\n7. 写 `/tmp_workspace/results/report.md` 含 `width_token` / `same_page: yes` / `tool_used` / 一段 ≥ 30 字符说明。\n\n判分要点速览:\n1. pdflatex paper.tex → 第一份有问题的 PDF。\n2. 看 PDF 确认 figure 出血 + figure 在错的页。\n3. 改 paper.tex (width + 浮动)。\n4. 重新编译。\n5. cp → results/paper.pdf, 截图 → proof.png, 写 report.md。\n\n## Source\n\n- EyesOn-Bench Seed v12 DOC-02 改编\n\n## Grading Criteria\n\n- [ ] 1. results/paper.pdf 存在 (会 rebuild verify)\n- [ ] 2. paper.tex 中 \\includegraphics 的 width <= \\textwidth (即不再溢出)\n- [ ] 3. (rebuilt PDF) 'Figure 1:' caption 与 'Figure 1 shows' 在同一页\n- [ ] 4. report.md 存在 + width_token + same_page + tool_used + 解释段\n- [ ] 5. proof.png 存在 >= 5 KB\n- [ ] 6. (VLM HARD GATE) proof.png 看得出 figure 与提及它的段落在同一页\n\n## Automated Checks\n\n```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    import re, subprocess\n    from pathlib import Path\n    try:\n        from PIL import Image\n    except Exception:\n        Image = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    rd = Path(\"/tmp_workspace/results\")\n    ws = Path(\"/tmp_workspace\")\n    scores = {}\n\n    rep = rd / \"report.md\"\n    text = rep.read_text(encoding=\"utf-8\", errors=\"ignore\") if rep.exists() else \"\"\n    scores[\"report_exists\"] = 1.0 if text.strip() else 0.0\n\n    # 1. results/paper.pdf exists\n    pdf = rd / \"paper.pdf\"\n    scores[\"pdf_exists\"] = 1.0 if (pdf.exists() and pdf.stat().st_size >= 5 * 1024) else 0.0\n\n    # 2. width fix in tex\n    tex = ws / \"paper.tex\"\n    scores[\"width_fixed\"] = 0.0\n    if tex.exists():\n        t = tex.read_text(encoding=\"utf-8\", errors=\"ignore\")\n        m = re.search(r\"\\\\includegraphics\\[[^]]*width\\s*=\\s*([0-9.]+)\\\\textwidth\", t)\n        if m:\n            w = float(m.group(1))\n            scores[\"width_value\"] = w\n            if w <= 1.0:\n                scores[\"width_fixed\"] = 1.0\n\n    # 3. same-page check via pdftotext -layout\n    scores[\"same_page\"] = 0.0\n    if pdf.exists():\n        try:\n            out = subprocess.run(\n                [\"pdftotext\", \"-layout\", str(pdf), \"-\"],\n                capture_output=True, text=True, timeout=30).stdout\n            # split per page (pdftotext separates with form feed \\f)\n            pages = out.split(\"\\f\")\n            for pg in pages:\n                if (\"Figure 1:\" in pg or \"Figure\\u00a01:\" in pg) and \\\n                   (\"Figure 1 shows\" in pg or \"Figure~1 shows\" in pg or \"Figure\\u00a01 shows\" in pg):\n                    scores[\"same_page\"] = 1.0\n                    break\n        except Exception as e:\n            scores[\"pdftotext_err\"] = str(e)[:100]\n\n    # 4. report fields\n    scores[\"width_field\"] = 1.0 if re.search(r\"width_token\\s*[:=]\\s*\\S+\", text) else 0.0\n    sp_m = re.search(r\"same_page\\s*[:=]\\s*(yes|no)\", text, re.IGNORECASE)\n    scores[\"same_page_field_yes\"] = 1.0 if (sp_m and sp_m.group(1).lower() == \"yes\") else 0.0\n    scores[\"tool_field\"] = 1.0 if re.search(r\"tool_used\\s*[:=]\\s*\\S+\", text) else 0.0\n    explain = \"\\n\".join(\n        ln for ln in text.splitlines()\n        if not re.match(r\"\\s*(width_token|same_page|tool_used)\\s*[:=]\", ln, re.IGNORECASE)\n    ).strip()\n    scores[\"explanation_len\"] = 1.0 if len(explain) >= 30 else (len(explain) / 30.0)\n\n    # 5. proof.png — must be a real screenshot, not a tiny placeholder\n    pp = rd / \"proof.png\"\n    pp_size = pp.stat().st_size if pp.exists() else 0\n    scores[\"proof_png\"] = 1.0 if (pp.exists() and pp_size >= 20 * 1024) else (\n        0.4 if (pp.exists() and pp_size >= 5 * 1024) else 0.0\n    )\n    scores[\"proof_png_size\"] = pp_size\n    # resolution gate: real desktop screenshot should be >= 1024x600\n    scores[\"proof_png_resolution\"] = 0.0\n    if pp.exists() and Image is not None:\n        try:\n            with Image.open(pp) as im:\n                w, h = im.size\n                scores[\"proof_png_w\"] = w\n                scores[\"proof_png_h\"] = h\n                if w >= 1024 and h >= 600:\n                    scores[\"proof_png_resolution\"] = 1.0\n                elif w >= 800 and h >= 480:\n                    scores[\"proof_png_resolution\"] = 0.5\n        except Exception:\n            pass\n\n    # 加权分组：core 60% / gui 30% / aux 10%\n    core = (\n        0.45 * scores[\"width_fixed\"] +\n        0.45 * scores[\"same_page\"] +\n        0.10 * scores[\"pdf_exists\"]\n    )\n    gui = (\n        0.55 * scores[\"proof_png\"] +\n        0.45 * scores[\"proof_png_resolution\"]\n    )\n    aux = (\n        0.20 * scores[\"report_exists\"] +\n        0.20 * scores[\"width_field\"] +\n        0.20 * scores[\"same_page_field_yes\"] +\n        0.20 * scores[\"tool_field\"] +\n        0.20 * scores[\"explanation_len\"]\n    )\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n    scores[\"core\"] = round(core, 3)\n    scores[\"gui\"] = round(gui, 3)\n    scores[\"aux\"] = round(aux, 3)\n    scores[\"overall_score\"] = round(base, 3)\n\n    # Structural hard gates (无 VLM 也必须卡住退化路径)\n    if scores.get(\"width_fixed\", 0.0) < 0.5 or scores.get(\"same_page\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.4)\n        base = min(base, 0.4)\n    if scores.get(\"proof_png\", 0.0) < 0.5 or scores.get(\"proof_png_resolution\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.5)\n        base = min(base, 0.5)\n\n    # 6. VLM HARD GATE\n    if vlm_score_rubric and pp.exists() and pp_size >= 20 * 1024:\n        rubric = {\n            \"vlm_pdf_view\":           \"proof.png 是 PDF 阅读器 (TeXstudio 预览面板 / Okular / Evince) 或 pdftoppm 渲染的 PDF 页面截图;不是空白图、终端文本、源代码窗口。\",\n            \"vlm_figure_visible\":     \"proof.png 中能直接看到一张柱状图 (Q3 throughput 直方图) + 它的 caption 'Figure 1: Sustained throughput ...'。\",\n            \"vlm_reference_visible\":  \"proof.png 同一张图里能直接看到正文 'Figure 1 shows' 那段话 — 即图与引用它的段落同时出现在画面里。\",\n            \"vlm_no_overflow\":        \"proof.png 中那张图没有明显冲出右边距 (没有图被裁/超出页面边界)。\",\n        }\n        try:\n            vlm = vlm_score_rubric([str(pp)], rubric,\n                instruction=\"判断 PDF 截图里 figure 是否与 'Figure 1 shows' 段落同页且不出血。\")\n            for k in rubric: scores[k] = vlm.get(k, 0.0)\n            scores[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n            vlm_avg = sum(vlm.get(k, 0.0) for k in rubric) / len(rubric)\n            scores[\"vlm_avg\"] = round(vlm_avg, 3)\n            # VLM 占 50%；同时再次卡硬阈值\n            scores[\"overall_score\"] = round(0.5*base + 0.5*vlm_avg, 3)\n            # HARD GATES (上拉)\n            if scores.get(\"vlm_pdf_view\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.25)\n            if scores.get(\"vlm_reference_visible\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_figure_visible\", 0.0) < 0.6:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_no_overflow\", 0.0) < 0.5:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.55)\n            if vlm_avg < 0.4:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.30)\n        except Exception:\n            pass\n    else:\n        # VLM 不可用 → 封顶 0.6，避免无视觉证据也满分\n        scores[\"judge_method\"] = \"vlm_unavailable\"\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.6)\n    return scores\n```",
+ "checks": "```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    import re, subprocess\n    from pathlib import Path\n    try:\n        from PIL import Image\n    except Exception:\n        Image = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    rd = Path(\"/tmp_workspace/results\")\n    ws = Path(\"/tmp_workspace\")\n    scores = {}\n\n    rep = rd / \"report.md\"\n    text = rep.read_text(encoding=\"utf-8\", errors=\"ignore\") if rep.exists() else \"\"\n    scores[\"report_exists\"] = 1.0 if text.strip() else 0.0\n\n    # 1. results/paper.pdf exists\n    pdf = rd / \"paper.pdf\"\n    scores[\"pdf_exists\"] = 1.0 if (pdf.exists() and pdf.stat().st_size >= 5 * 1024) else 0.0\n\n    # 2. width fix in tex\n    tex = ws / \"paper.tex\"\n    scores[\"width_fixed\"] = 0.0\n    if tex.exists():\n        t = tex.read_text(encoding=\"utf-8\", errors=\"ignore\")\n        m = re.search(r\"\\\\includegraphics\\[[^]]*width\\s*=\\s*([0-9.]+)\\\\textwidth\", t)\n        if m:\n            w = float(m.group(1))\n            scores[\"width_value\"] = w\n            if w <= 1.0:\n                scores[\"width_fixed\"] = 1.0\n\n    # 3. same-page check via pdftotext -layout\n    scores[\"same_page\"] = 0.0\n    if pdf.exists():\n        try:\n            out = subprocess.run(\n                [\"pdftotext\", \"-layout\", str(pdf), \"-\"],\n                capture_output=True, text=True, timeout=30).stdout\n            # split per page (pdftotext separates with form feed \\f)\n            pages = out.split(\"\\f\")\n            for pg in pages:\n                if (\"Figure 1:\" in pg or \"Figure\\u00a01:\" in pg) and \\\n                   (\"Figure 1 shows\" in pg or \"Figure~1 shows\" in pg or \"Figure\\u00a01 shows\" in pg):\n                    scores[\"same_page\"] = 1.0\n                    break\n        except Exception as e:\n            scores[\"pdftotext_err\"] = str(e)[:100]\n\n    # 4. report fields\n    scores[\"width_field\"] = 1.0 if re.search(r\"width_token\\s*[:=]\\s*\\S+\", text) else 0.0\n    sp_m = re.search(r\"same_page\\s*[:=]\\s*(yes|no)\", text, re.IGNORECASE)\n    scores[\"same_page_field_yes\"] = 1.0 if (sp_m and sp_m.group(1).lower() == \"yes\") else 0.0\n    scores[\"tool_field\"] = 1.0 if re.search(r\"tool_used\\s*[:=]\\s*\\S+\", text) else 0.0\n    explain = \"\\n\".join(\n        ln for ln in text.splitlines()\n        if not re.match(r\"\\s*(width_token|same_page|tool_used)\\s*[:=]\", ln, re.IGNORECASE)\n    ).strip()\n    scores[\"explanation_len\"] = 1.0 if len(explain) >= 30 else (len(explain) / 30.0)\n\n    # 5. proof.png — must be a real screenshot, not a tiny placeholder\n    pp = rd / \"proof.png\"\n    pp_size = pp.stat().st_size if pp.exists() else 0\n    scores[\"proof_png\"] = 1.0 if (pp.exists() and pp_size >= 20 * 1024) else (\n        0.4 if (pp.exists() and pp_size >= 5 * 1024) else 0.0\n    )\n    scores[\"proof_png_size\"] = pp_size\n    # resolution gate: real desktop screenshot should be >= 1024x600\n    scores[\"proof_png_resolution\"] = 0.0\n    if pp.exists() and Image is not None:\n        try:\n            with Image.open(pp) as im:\n                w, h = im.size\n                scores[\"proof_png_w\"] = w\n                scores[\"proof_png_h\"] = h\n                if w >= 1024 and h >= 600:\n                    scores[\"proof_png_resolution\"] = 1.0\n                elif w >= 800 and h >= 480:\n                    scores[\"proof_png_resolution\"] = 0.5\n        except Exception:\n            pass\n\n    # 加权分组：core 60% / gui 30% / aux 10%\n    core = (\n        0.45 * scores[\"width_fixed\"] +\n        0.45 * scores[\"same_page\"] +\n        0.10 * scores[\"pdf_exists\"]\n    )\n    gui = (\n        0.55 * scores[\"proof_png\"] +\n        0.45 * scores[\"proof_png_resolution\"]\n    )\n    aux = (\n        0.20 * scores[\"report_exists\"] +\n        0.20 * scores[\"width_field\"] +\n        0.20 * scores[\"same_page_field_yes\"] +\n        0.20 * scores[\"tool_field\"] +\n        0.20 * scores[\"explanation_len\"]\n    )\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n    scores[\"core\"] = round(core, 3)\n    scores[\"gui\"] = round(gui, 3)\n    scores[\"aux\"] = round(aux, 3)\n    scores[\"overall_score\"] = round(base, 3)\n\n    # Structural hard gates (无 VLM 也必须卡住退化路径)\n    if scores.get(\"width_fixed\", 0.0) < 0.5 or scores.get(\"same_page\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.4)\n        base = min(base, 0.4)\n    if scores.get(\"proof_png\", 0.0) < 0.5 or scores.get(\"proof_png_resolution\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.5)\n        base = min(base, 0.5)\n\n    # 6. VLM HARD GATE\n    if vlm_score_rubric and pp.exists() and pp_size >= 20 * 1024:\n        rubric = {\n            \"vlm_pdf_view\":           \"proof.png 是 PDF 阅读器 (TeXstudio 预览面板 / Okular / Evince) 或 pdftoppm 渲染的 PDF 页面截图;不是空白图、终端文本、源代码窗口。\",\n            \"vlm_figure_visible\":     \"proof.png 中能直接看到一张柱状图 (Q3 throughput 直方图) + 它的 caption 'Figure 1: Sustained throughput ...'。\",\n            \"vlm_reference_visible\":  \"proof.png 同一张图里能直接看到正文 'Figure 1 shows' 那段话 — 即图与引用它的段落同时出现在画面里。\",\n            \"vlm_no_overflow\":        \"proof.png 中那张图没有明显冲出右边距 (没有图被裁/超出页面边界)。\",\n        }\n        try:\n            vlm = vlm_score_rubric([str(pp)], rubric,\n                instruction=\"判断 PDF 截图里 figure 是否与 'Figure 1 shows' 段落同页且不出血。\")\n            for k in rubric: scores[k] = vlm.get(k, 0.0)\n            scores[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n            vlm_avg = sum(vlm.get(k, 0.0) for k in rubric) / len(rubric)\n            scores[\"vlm_avg\"] = round(vlm_avg, 3)\n            # VLM 占 50%；同时再次卡硬阈值\n            scores[\"overall_score\"] = round(0.5*base + 0.5*vlm_avg, 3)\n            # HARD GATES (上拉)\n            if scores.get(\"vlm_pdf_view\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.25)\n            if scores.get(\"vlm_reference_visible\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_figure_visible\", 0.0) < 0.6:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_no_overflow\", 0.0) < 0.5:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.55)\n            if vlm_avg < 0.4:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.30)\n        except Exception:\n            pass\n    else:\n        # VLM 不可用 → 封顶 0.6，避免无视觉证据也满分\n        scores[\"judge_method\"] = \"vlm_unavailable\"\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.6)\n    return scores\n```",
+ "deliverables": [
+  [
+   "proof.png",
+   "deliv_01.webp"
+  ],
+  [
+   "plot.png",
+   "deliv_02.webp"
+  ]
+ ],
+ "files": [
+  [
+   "make_plot.sh",
+   524
+  ],
+  [
+   "paper.aux",
+   634
+  ],
+  [
+   "paper.log",
+   7755
+  ],
+  [
+   "paper.pdf",
+   71992
+  ],
+  [
+   "paper.tex",
+   751
+  ],
+  [
+   "plot.png",
+   2218
+  ],
+  [
+   "proof.png",
+   1741411
+  ],
+  [
+   "report.md",
+   367
+  ]
+ ],
+ "steps": [
+  {
+   "kind": "note",
+   "thinking": "I’ll fix the LaTeX source, compile it, then open the PDF visually and capture the required proof screenshot."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "mkdir -p \"/tmp_workspace/results\" && pdflatex -interaction=nonstopmode -halt-on-error -output-directory \"/tmp_workspace/results\" \"/tmp_workspace/paper.tex\" && pdflatex -interaction=nonstopmode -halt-on-error -output-directory \"/tmp_workspace/results\" \"/tmp_workspace/paper.tex\"",
+   "shot": null,
+   "output": "This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex)\n restricted \\write18 enabled.\nentering extended mode\n(/tmp_workspace/paper.tex\nLaTeX2e <2021-11-15> patch level 1\nL3 programming layer <2022-01-21>\n(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls\nDocument Class: article 2021/10/04 v1.4n Standard LaTeX document class\n(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo))\n(/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty)))\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/float/float.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.ltd.tex))\nNo file paper.aux.\n*geometry* driver: auto-detecting\n*geometry* detected driver: pdftex\n(/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii\n[Loading MPS to PDF converter (version 2006.09.02).]\n) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty\n(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg))\n\nPackage lipsum Warning: Unknown language 'latin'. Hyphenation patterns for\n(lipsum)                'english' will be used instead.\n\n\nLaTeX Warning: Reference `fig:throughput' on page 1 undefined on input line 25.\n\n\n[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./plot.png (PNG copy\n)>] (/tmp_workspace/results/paper.aux)\n\nLaTeX Warning: There were undefined references.\n\n\nLaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.\n\n )</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us\nr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/shar\ne/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texli\nve/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/texm\nf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb>\nOutput written on /tmp_workspace/results/paper.pdf (2 pages, 71993 bytes).\nTranscript written on /tmp_workspace/results/paper.log.\nThis is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex)\n restricted \\write18 enabled.\nentering extended mode\n(/tmp_workspace/paper.tex\nLaTeX2e <2021-11-15> patch level 1\nL3 programming layer <2022-01-21>\n(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls\nDocument Class: article 2021/10/04 v1.4n Standard LaTeX document class\n(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo))\n(/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty)))\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/float/float.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.ltd.tex))\n(/tmp_workspace/results/paper.aux)\n*geometry* driver: auto-detecting\n*geometry* detected driver: pdftex\n(/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii\n[Loading MPS to PDF converter (version 2006.09.02).]\n) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty\n(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg))\n\nPackage lipsum Warning: Unknown language 'latin'. Hyphenation patterns for\n(lipsum)                'english' will be used instead.\n\n[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./plot.png (PNG copy\n)>] (/tmp_workspace/results/paper.aux) )</usr/share/texlive/texmf-dist/fonts/ty\npe1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu\nblic/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a\nmsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts\n/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr\n17.pfb>\nOutput written on /tmp_workspace/results/paper.pdf (2 pages, 71844 bytes).\nTranscript written on /tmp_workspace/results/paper.log."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "(no-op)",
+   "shot": "001.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · type \"evince /tmp_workspace/results/paper.pdf\" · keypress · wait 2000ms",
+   "shot": "002.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "pdflatex -interaction=nonstopmode -halt-on-error -output-directory \"/tmp_workspace/results\" \"/tmp_workspace/paper.tex\" && pdflatex -interaction=nonstopmode -halt-on-error -output-directory \"/tmp_workspace/results\" \"/tmp_workspace/paper.tex\"",
+   "shot": null,
+   "output": "This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex)\n restricted \\write18 enabled.\nentering extended mode\n(/tmp_workspace/paper.tex\nLaTeX2e <2021-11-15> patch level 1\nL3 programming layer <2022-01-21>\n(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls\nDocument Class: article 2021/10/04 v1.4n Standard LaTeX document class\n(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo))\n(/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty)))\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/float/float.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.ltd.tex))\n(/tmp_workspace/results/paper.aux)\n*geometry* driver: auto-detecting\n*geometry* detected driver: pdftex\n(/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii\n[Loading MPS to PDF converter (version 2006.09.02).]\n) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty\n(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg))\n\nPackage lipsum Warning: Unknown language 'latin'. Hyphenation patterns for\n(lipsum)                'english' will be used instead.\n\n[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./plot.png (PNG copy\n)>] (/tmp_workspace/results/paper.aux) )</usr/share/texlive/texmf-dist/fonts/ty\npe1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu\nblic/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a\nmsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts\n/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr\n17.pfb>\nOutput written on /tmp_workspace/results/paper.pdf (2 pages, 71992 bytes).\nTranscript written on /tmp_workspace/results/paper.log.\nThis is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex)\n restricted \\write18 enabled.\nentering extended mode\n(/tmp_workspace/paper.tex\nLaTeX2e <2021-11-15> patch level 1\nL3 programming layer <2022-01-21>\n(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls\nDocument Class: article 2021/10/04 v1.4n Standard LaTeX document class\n(/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo))\n(/usr/share/texlive/texmf-dist/tex/latex/geometry/geometry.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty)\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/ifvtex.sty\n(/usr/share/texlive/texmf-dist/tex/generic/iftex/iftex.sty)))\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty\n(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-cfg/graphics.cfg)\n(/usr/share/texlive/texmf-dist/tex/latex/graphics-def/pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/float/float.sty)\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3packages/l3keys2e/l3keys2e.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3kernel/expl3.sty\n(/usr/share/texlive/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def)))\n(/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.ltd.tex))\n(/tmp_workspace/results/paper.aux)\n*geometry* driver: auto-detecting\n*geometry* detected driver: pdftex\n(/usr/share/texlive/texmf-dist/tex/context/base/mkii/supp-pdf.mkii\n[Loading MPS to PDF converter (version 2006.09.02).]\n) (/usr/share/texlive/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty\n(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg))\n\nPackage lipsum Warning: Unknown language 'latin'. Hyphenation patterns for\n(lipsum)                'english' will be used instead.\n\n[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2 <./plot.png (PNG copy\n)>] (/tmp_workspace/results/paper.aux) )</usr/share/texlive/texmf-dist/fonts/ty\npe1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu\nblic/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a\nmsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts\n/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr\n17.pfb>\nOutput written on /tmp_workspace/results/paper.pdf (2 pages, 71992 bytes).\nTranscript written on /tmp_workspace/results/paper.log."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · keypress · click (111,337) · wait 800ms · keypress · wait 500ms",
+   "shot": "003.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · keypress · keypress · wait 500ms · scroll  · wait 500ms",
+   "shot": "004.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (96,229) · wait 500ms · keypress · wait 300ms",
+   "shot": "005.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 500ms",
+   "shot": "006.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (96,229) · wait 500ms · keypress · wait 300ms",
+   "shot": "007.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (94,229) · wait 500ms",
+   "shot": "008.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (113,35) · keypress · type \"2\" · keypress · wait 500ms · scroll  · wait 300ms",
+   "shot": "009.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · double_click · wait 800ms · keypress · wait 300ms",
+   "shot": "010.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (95,230) · wait 500ms · click (96,230) · wait 500ms · keypress · keypress · keypress · wait 500ms",
+   "shot": "011.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (94,230) · wait 300ms · keypress · double_click · wait 500ms",
+   "shot": "012.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · drag · wait 500ms",
+   "shot": "013.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 500ms · click (714,717) · wait 500ms · keypress · keypress · wait 500ms",
+   "shot": "014.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 500ms · keypress · wait 300ms · keypress · keypress · wait 300ms",
+   "shot": "015.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "scroll  · wait 400ms · scroll  · wait 400ms",
+   "shot": "016.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "evince --help | perl -ne 'print if /page|help|Usage|label/i'",
+   "shot": null,
+   "output": "Usage:\nHelp Options:\n  -h, --help                  Show help options\n  --help-all                  Show all help options\n  --help-gtk                  Show GTK+ Options\n  -p, --page-label=PAGE       The page label of the document to display.\n  -i, --page-index=NUMBER     The page number of the document to display."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · type \"evince -i 1 /tmp_workspace/results/paper.pdf\" · keypress · wait 1200ms · keypress · wait 300ms",
+   "shot": "017.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · click (98,252) · wait 700ms · double_click · wait 700ms",
+   "shot": "018.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "pdftotext -f 2 -l 2 -layout \"/tmp_workspace/results/paper.pdf\" - | perl -ne 'print if /Discussion|Figure|Sustained|throughput|percentile/'",
+   "shot": null,
+   "output": "4    Discussion\naccumsan eleifend, sagittis quis, diam. Duis eget orci sit amet orci dignissim rutrum. Figure 1\nshows a clear inflection at the 80th percentile, where Tier B sustains 4x the throughput of Tier A.\n      Figure 1: Sustained throughput across the four service tiers during the Q3 load test."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (784,417) · keypress · wait 500ms · keypress · wait 500ms",
+   "shot": "019.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 500ms · keypress · type \"evince -i 1 /tmp_workspace/results/paper.pdf\" · keypress · wait 1500ms · keypress · wait 300ms",
+   "shot": "020.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (111,334) · wait 500ms",
+   "shot": "021.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (113,142) · keypress · type \"2\" · keypress · wait 800ms",
+   "shot": "022.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (324,326) · scroll  · wait 500ms · scroll  · wait 500ms",
+   "shot": "023.webp",
+   "output": "[screenshot]"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "gnome-screenshot -f \"/tmp_workspace/results/proof.png\"",
+   "shot": null,
+   "output": "(Bash completed with no output)"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "ls -la \"/tmp_workspace/results\" && file \"/tmp_workspace/results/paper.pdf\" \"/tmp_workspace/results/proof.png\" \"/tmp_workspace/results/report.md\"",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "pdftotext -f 2 -l 2 -layout \"/tmp_workspace/results/paper.pdf\" - | perl -ne 'print if /Discussion|Figure|Sustained|throughput|percentile/'",
+   "shot": null,
+   "output": "     1→width_token: \\textwidth\n     2→same_page: yes\n     3→tool_used: evince and gnome-screenshot\n     4→\n     5→The original PDF placed the figure on an earlier page and let the image extend past the right text margin. After the fix, the Discussion paragraph containing “Figure 1 shows ...” appears on the same page as the Figure 1 caption, and the plot is scaled to fit within the page margins.\n     6→\n\n<system-reminder>\nWhenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.\n</system-reminder>\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "Done. I modified `/tmp_workspace/paper.tex` only, recompiled the PDF, captured the visual proof screenshot, and verified all required deliverables exist:\n\n- `/tmp_workspace/results/paper.pdf`\n- `/tmp_workspace/results/proof.png`\n- `/tmp_workspace/results/report.md`\n\nKey fix: Figure 1 is now placed after the Discussion sentence with `[H]`, scaled with `width=\\textwidth`, and the Discussion page is forced with `\\clearpage` so the sentence and figure/caption render together on page 2."
+  },
+  {
+   "kind": "note",
+   "thinking": "Done. I modified `/tmp_workspace/paper.tex` only, recompiled the PDF, captured the visual proof screenshot, and verified all required deliverables exist:\n\n- `/tmp_workspace/results/paper.pdf`\n- `/tmp_workspace/results/proof.png`\n- `/tmp_workspace/results/report.md`\n\nKey fix: Figure 1 is now placed after the Discussion sentence with `[H]`, scaled with `width=\\textwidth`, and the Discussion page is forced with `\\clearpage` so the sentence and figure/caption render together on page 2."
+  }
+ ],
+ "name_en": "Fix LaTeX figure bleed + float misplacement (TeXstudio + pdflatex)",
+ "prompt_zh": "`/tmp_workspace/paper.tex` 可以成功编译,但渲染出的 PDF 有两个问题,**只能通过视觉检查才能发现**:\n\n1. **Figure 1 在视觉上溢出了右边距** —— 插入图片的宽度设置得不正确。\n2. **Figure 1 落到了错误的页面上** —— Discussion 一节写着 \"Figure 1 shows ...\",但 `Figure 1:` 这个 caption 实际上却渲染在更靠前的一页上(因为该 figure 浮动体 [t] 放置得太急切,把正文往下顶了)。\n\n任务:修改 `/tmp_workspace/paper.tex`(仅此一个文件),使得 (a) figure 不再溢出右边距;(b) figure 落在与 Discussion 那句 \"Figure 1 shows ...\" **同一页**上。\n\n交付物(写入 `/tmp_workspace/results/`):\n\n- `paper.pdf` —— 修复后重新编译得到的 PDF。\n- `proof.png` —— 一张证明用截图,显示 figure 与 \"Figure 1 shows ...\" 段落处于同一页,且 figure 不再溢出右边距。\n- `report.md`,其中**必须**包含:\n   - `width_token: <你最终为 width= 写的内容>`\n   - `same_page: yes`\n   - `tool_used: <名称>`\n   - 一段至少 30 个字符的说明,解释修复前后 PDF 的视觉差异。\n\n## Expected Behavior\n\n参考解题流程 (设计者参考, 不发给 agent):\n\n1. `cd /tmp_workspace && pdflatex -interaction=nonstopmode paper.tex` → 第一份有问题的 PDF。\n2. 看 PDF 确认 figure 出血 + figure 在错的页。\n3. 编辑 `paper.tex`(只改这一个文件):\n   - 把 `\\includegraphics` 的宽度调到不再溢出右边距。\n   - 让 figure 与 Discussion 的 \"Figure 1 shows ...\" 落到**同一页**(自行决定如何调整 figure 的浮动放置或位置)。\n4. 重新编译 → 看 PDF 确认两处都修好。\n5. `cp /tmp_workspace/paper.pdf /tmp_workspace/results/paper.pdf`。\n6. 截一张能看到 figure 与 \"Figure 1 shows ...\" 段落**同一页**的截图保存为 `/tmp_workspace/results/proof.png`。\n7. 写 `/tmp_workspace/results/report.md` 含 `width_token` / `same_page: yes` / `tool_used` / 一段 ≥ 30 字符说明。\n\n判分要点速览:\n1. pdflatex paper.tex → 第一份有问题的 PDF。\n2. 看 PDF 确认 figure 出血 + figure 在错的页。\n3. 改 paper.tex (width + 浮动)。\n4. 重新编译。\n5. cp → results/paper.pdf, 截图 → proof.png, 写 report.md。\n\n## Source\n\n- EyesOn-Bench Seed v12 DOC-02 改编\n\n## Grading Criteria\n\n- [ ] 1. results/paper.pdf 存在 (会 rebuild verify)\n- [ ] 2. paper.tex 中 \\includegraphics 的 width <= \\textwidth (即不再溢出)\n- [ ] 3. (rebuilt PDF) 'Figure 1:' caption 与 'Figure 1 shows' 在同一页\n- [ ] 4. report.md 存在 + width_token + same_page + tool_used + 解释段\n- [ ] 5. proof.png 存在 >= 5 KB\n- [ ] 6. (VLM HARD GATE) proof.png 看得出 figure 与提及它的段落在同一页\n\n## Automated Checks\n\n```python\ndef grade(workspace_path=None, **kwargs) -> dict:\n    import re, subprocess\n    from pathlib import Path\n    try:\n        from PIL import Image\n    except Exception:\n        Image = None\n    try:\n        from _judge_helper import vlm_score_rubric\n    except Exception:\n        vlm_score_rubric = None\n\n    rd = Path(\"/tmp_workspace/results\")\n    ws = Path(\"/tmp_workspace\")\n    scores = {}\n\n    rep = rd / \"report.md\"\n    text = rep.read_text(encoding=\"utf-8\", errors=\"ignore\") if rep.exists() else \"\"\n    scores[\"report_exists\"] = 1.0 if text.strip() else 0.0\n\n    # 1. results/paper.pdf exists\n    pdf = rd / \"paper.pdf\"\n    scores[\"pdf_exists\"] = 1.0 if (pdf.exists() and pdf.stat().st_size >= 5 * 1024) else 0.0\n\n    # 2. width fix in tex\n    tex = ws / \"paper.tex\"\n    scores[\"width_fixed\"] = 0.0\n    if tex.exists():\n        t = tex.read_text(encoding=\"utf-8\", errors=\"ignore\")\n        m = re.search(r\"\\\\includegraphics\\[[^]]*width\\s*=\\s*([0-9.]+)\\\\textwidth\", t)\n        if m:\n            w = float(m.group(1))\n            scores[\"width_value\"] = w\n            if w <= 1.0:\n                scores[\"width_fixed\"] = 1.0\n\n    # 3. same-page check via pdftotext -layout\n    scores[\"same_page\"] = 0.0\n    if pdf.exists():\n        try:\n            out = subprocess.run(\n                [\"pdftotext\", \"-layout\", str(pdf), \"-\"],\n                capture_output=True, text=True, timeout=30).stdout\n            # split per page (pdftotext separates with form feed \\f)\n            pages = out.split(\"\\f\")\n            for pg in pages:\n                if (\"Figure 1:\" in pg or \"Figure\\u00a01:\" in pg) and \\\n                   (\"Figure 1 shows\" in pg or \"Figure~1 shows\" in pg or \"Figure\\u00a01 shows\" in pg):\n                    scores[\"same_page\"] = 1.0\n                    break\n        except Exception as e:\n            scores[\"pdftotext_err\"] = str(e)[:100]\n\n    # 4. report fields\n    scores[\"width_field\"] = 1.0 if re.search(r\"width_token\\s*[:=]\\s*\\S+\", text) else 0.0\n    sp_m = re.search(r\"same_page\\s*[:=]\\s*(yes|no)\", text, re.IGNORECASE)\n    scores[\"same_page_field_yes\"] = 1.0 if (sp_m and sp_m.group(1).lower() == \"yes\") else 0.0\n    scores[\"tool_field\"] = 1.0 if re.search(r\"tool_used\\s*[:=]\\s*\\S+\", text) else 0.0\n    explain = \"\\n\".join(\n        ln for ln in text.splitlines()\n        if not re.match(r\"\\s*(width_token|same_page|tool_used)\\s*[:=]\", ln, re.IGNORECASE)\n    ).strip()\n    scores[\"explanation_len\"] = 1.0 if len(explain) >= 30 else (len(explain) / 30.0)\n\n    # 5. proof.png — must be a real screenshot, not a tiny placeholder\n    pp = rd / \"proof.png\"\n    pp_size = pp.stat().st_size if pp.exists() else 0\n    scores[\"proof_png\"] = 1.0 if (pp.exists() and pp_size >= 20 * 1024) else (\n        0.4 if (pp.exists() and pp_size >= 5 * 1024) else 0.0\n    )\n    scores[\"proof_png_size\"] = pp_size\n    # resolution gate: real desktop screenshot should be >= 1024x600\n    scores[\"proof_png_resolution\"] = 0.0\n    if pp.exists() and Image is not None:\n        try:\n            with Image.open(pp) as im:\n                w, h = im.size\n                scores[\"proof_png_w\"] = w\n                scores[\"proof_png_h\"] = h\n                if w >= 1024 and h >= 600:\n                    scores[\"proof_png_resolution\"] = 1.0\n                elif w >= 800 and h >= 480:\n                    scores[\"proof_png_resolution\"] = 0.5\n        except Exception:\n            pass\n\n    # 加权分组：core 60% / gui 30% / aux 10%\n    core = (\n        0.45 * scores[\"width_fixed\"] +\n        0.45 * scores[\"same_page\"] +\n        0.10 * scores[\"pdf_exists\"]\n    )\n    gui = (\n        0.55 * scores[\"proof_png\"] +\n        0.45 * scores[\"proof_png_resolution\"]\n    )\n    aux = (\n        0.20 * scores[\"report_exists\"] +\n        0.20 * scores[\"width_field\"] +\n        0.20 * scores[\"same_page_field_yes\"] +\n        0.20 * scores[\"tool_field\"] +\n        0.20 * scores[\"explanation_len\"]\n    )\n    base = 0.6 * core + 0.3 * gui + 0.1 * aux\n    scores[\"core\"] = round(core, 3)\n    scores[\"gui\"] = round(gui, 3)\n    scores[\"aux\"] = round(aux, 3)\n    scores[\"overall_score\"] = round(base, 3)\n\n    # Structural hard gates (无 VLM 也必须卡住退化路径)\n    if scores.get(\"width_fixed\", 0.0) < 0.5 or scores.get(\"same_page\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.4)\n        base = min(base, 0.4)\n    if scores.get(\"proof_png\", 0.0) < 0.5 or scores.get(\"proof_png_resolution\", 0.0) < 0.5:\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.5)\n        base = min(base, 0.5)\n\n    # 6. VLM HARD GATE\n    if vlm_score_rubric and pp.exists() and pp_size >= 20 * 1024:\n        rubric = {\n            \"vlm_pdf_view\":           \"proof.png 是 PDF 阅读器 (TeXstudio 预览面板 / Okular / Evince) 或 pdftoppm 渲染的 PDF 页面截图;不是空白图、终端文本、源代码窗口。\",\n            \"vlm_figure_visible\":     \"proof.png 中能直接看到一张柱状图 (Q3 throughput 直方图) + 它的 caption 'Figure 1: Sustained throughput ...'。\",\n            \"vlm_reference_visible\":  \"proof.png 同一张图里能直接看到正文 'Figure 1 shows' 那段话 — 即图与引用它的段落同时出现在画面里。\",\n            \"vlm_no_overflow\":        \"proof.png 中那张图没有明显冲出右边距 (没有图被裁/超出页面边界)。\",\n        }\n        try:\n            vlm = vlm_score_rubric([str(pp)], rubric,\n                instruction=\"判断 PDF 截图里 figure 是否与 'Figure 1 shows' 段落同页且不出血。\")\n            for k in rubric: scores[k] = vlm.get(k, 0.0)\n            scores[\"judge_method\"] = vlm.get(\"judge_method\", \"failed\")\n            vlm_avg = sum(vlm.get(k, 0.0) for k in rubric) / len(rubric)\n            scores[\"vlm_avg\"] = round(vlm_avg, 3)\n            # VLM 占 50%；同时再次卡硬阈值\n            scores[\"overall_score\"] = round(0.5*base + 0.5*vlm_avg, 3)\n            # HARD GATES (上拉)\n            if scores.get(\"vlm_pdf_view\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.25)\n            if scores.get(\"vlm_reference_visible\", 0.0) < 0.7:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_figure_visible\", 0.0) < 0.6:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.45)\n            if scores.get(\"vlm_no_overflow\", 0.0) < 0.5:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.55)\n            if vlm_avg < 0.4:\n                scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.30)\n        except Exception:\n            pass\n    else:\n        # VLM 不可用 → 封顶 0.6，避免无视觉证据也满分\n        scores[\"judge_method\"] = \"vlm_unavailable\"\n        scores[\"overall_score\"] = min(scores[\"overall_score\"], 0.6)\n    return scores\n```"
+}

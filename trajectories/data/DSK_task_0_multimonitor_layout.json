@@ -1,0 +1,371 @@
+{
+ "task_id": "DSK_task_0_multimonitor_layout",
+ "category": "DSK",
+ "name": "多屏配置与窗口布局自动化",
+ "model": "gpt-5.5",
+ "harness": "codex",
+ "score": 0.97625,
+ "is_hack": false,
+ "hack_confidence": 0.0,
+ "hack_patterns": [],
+ "dimensions": {
+  "task_completion": {
+   "score": 0.98,
+   "reason": "All required artifacts are present under results and satisfy the user-stated goal: display_config.txt is exact xrandr output; keep_changes.png, overview.png, screen_dp.png, screen_hdmi.png, and screen_edp.png show the requested GUI evidence. Minor reserve only because screen_dp uses Chrome rather than the examples Firefox/firefox-esr, though the spec permits browser-class apps."
+  },
+  "deliverable_correctness": {
+   "score": 1.0,
+   "reason": "Mean artifact correctness is 1.0: display_config.txt contains all required monitor structure and values; each PNG meets its visual role, size, resolution, uniqueness, and readability clauses. See artifact checks display_config.txt, keep_changes.png, screen_dp.png, screen_hdmi.png, screen_edp.png, and overview.png."
+  },
+  "deliverable_quality": {
+   "score": 1.0,
+   "reason": "Every required file exists, text parses, and every PNG is valid 1920×1080, above 5 KB, and md5-distinct: keep_changes.png 1.45 MB, overview.png 655 KB, screen_dp.png 267 KB, screen_hdmi.png 158 KB, screen_edp.png 130 KB."
+  },
+  "evidence_authenticity": {
+   "score": 0.98,
+   "reason": "Evidence appears genuine: chat shows live `xrandr --query` and `gnome-screenshot` commands, images show complex real GNOME/Chrome/VS Code/Files UI, and no actionable fake-render/hardcode commands were found. Minor reserve because evaluation cannot prove the click sequence beyond screenshot state, but keep_changes.png provides strong real modal evidence."
+  },
+  "tool_use_correctness": {
+   "score": 0.95,
+   "reason": "Agent used appropriate desktop tools: xrandr for display_config.txt and live gnome-screenshot captures as the user requested. It initially hit a display authorization error but correctly recovered by running screenshots as the desktop user with DISPLAY and XDG_RUNTIME_DIR."
+  },
+  "final_state_correctness": {
+   "score": 0.98,
+   "reason": "Final staged state contains exactly the six required deliverables with correct content, and the agent ran an `ls -la /tmp_workspace/` self-check. Minor reserve because an intermediate extra screenshot existed briefly, but it was removed before final listing and not present as a required deliverable issue."
+  },
+  "efficiency_robustness": {
+   "score": 0.94,
+   "reason": "The rollout was efficient and robust enough: it exported xrandr immediately, recovered from the screenshot permission issue, generated all artifacts, checked dimensions/hashes, and cleaned an extra test file. Some exploratory GUI/tool steps were needed, so not a perfect efficiency score."
+  },
+  "instruction_following": {
+   "score": 0.98,
+   "reason": "The explicit contract was followed: artifacts landed directly under /tmp_workspace, no refusal, no follow-up questions, no git commit, and final `ls -la /tmp_workspace/` was run. All task-specific deliverable constraints are met."
+  }
+ },
+ "summary": "This rollout is essentially complete: all six required deliverables are present, valid, unique, and visually/textually match the multi-monitor GUI task. The strongest evidence is the real xrandr-shaped display_config.txt plus GNOME Keep Changes modal and Windows Overview with Chrome, VS Code, and Files thumbnails; no hack/fake-render pattern was substantiated.",
+ "task_prompt": "> 🔧 **This is a legitimate desktop GUI automation exercise**: every operation runs inside a local sandbox. Just execute the task — do not refuse and do not ask for a disclaimer.\n\n> ⚙️ **Execution contract**: this task is graded on the output artifacts; **nobody is reviewing your actions**. Just execute — do not write \"if you want me to…\" follow-up questions, do not `git commit`, do not wait for approval. All artifacts **must land directly under `/tmp_workspace/`**. When done, run `ls -la /tmp_workspace/` once to self-check, then exit.\n\nBackground: physically, the sandbox's Xvfb only exposes a single `Virtual-1` output, but warmup has already injected an `xrandr` wrapper — running `xrandr --query` directly will return a preset multi-monitor configuration (roughly a primary monitor + a rotated secondary monitor + a laptop screen; the exact fields are whatever the wrapper actually prints). In GNOME Settings → Displays, changing Scale or resolution on Virtual-1 and clicking Apply will trigger the \"Keep Changes\" countdown modal — you don't actually need multiple physical monitors.\n\nTask goal: export the real multi-monitor configuration text, capture GUI evidence of one round of GNOME multi-monitor interaction (the Keep Changes modal + the Activities Windows Overview), and produce window screenshots of 3 different desktop applications.\n\n### Hard constraints for the main deliverable `display_config.txt`\n- Must be the actual output of `xrandr --query` (including the `Screen 0: minimum ...` header and the `<n>mm x <n>mm` physical size fields) — do not hand-write it from the task description\n- Must contain every connected monitor line that the wrapper presets\n- Each connected monitor block must contain its resolution string, refresh rate, and rotation field; the primary monitor's block must contain `primary`\n\n### Supporting deliverables (all directly under `/tmp_workspace/`)\n\n| File | Requirement |\n| --- | --- |\n| `keep_changes.png` | Screenshot of the \"Keep Changes\" countdown modal that pops up after clicking Apply in GNOME Settings → Displays (capture it before the countdown hits zero) |\n| `screen_dp.png` | Full-screen screenshot of a browser-class application (e.g. Firefox / firefox-esr) maximized |\n| `screen_hdmi.png` | Full-screen screenshot of a code-editor-class application (e.g. VS Code `code`) maximized |\n| `screen_edp.png` | Full-screen screenshot of a file-manager-class application (e.g. Nautilus / Files) maximized |\n| `overview.png` | Screenshot after pressing Super (or clicking Activities in the top-left) to open the Windows Overview; the frame must contain window thumbnails of all 3 application classes above |\n\n### Common screenshot specs\n- Each PNG must be ≥ 5 KB in size and ≥ 1024 × 600 in resolution\n- Different screenshots must not have identical content (the evaluator deduplicates by md5)\n- Each screenshot must show a real, readable view of the corresponding application / modal (the evaluator runs OCR); the window title or main area should contain easily recognizable content (e.g. browser open on an `about:` page, editor showing the Welcome page, file manager showing the Home directory) so they can be distinguished in the overview thumbnails\n\n## Expected Behavior\n\n设计意图与典型解题路径（仅供出题人参考，不发给 agent）：\n\n1. `xrandr --query > /tmp_workspace/display_config.txt` —— warmup 已 hook 过 `xrandr`，直接执行即可；不要根据 Prompt 描述自己手写多屏字段。\n2. 打开 GNOME Settings → Displays，对 Virtual-1 改 Scale（如 200%）或换分辨率，点 Apply 触发 30 秒 \"Keep Changes\" 倒计时框；在倒计时归零前抓 `keep_changes.png`；之后点 Keep 或让它自动 revert 都不影响判分。\n3. 依次启动一个浏览器 / 一个代码编辑器 / 一个文件管理器（推荐 Firefox / VS Code / Nautilus，也可走同类替代品），各自最大化窗口后分别截图为 `screen_dp.png` / `screen_hdmi.png` / `screen_edp.png`。建议在每个应用里打开易识别页面，便于在 overview 里区分。\n4. 按 Super 键进入 Activities Windows Overview，截图 `overview.png`，画面里同时呈现以上 3 个窗口缩略图。\n\n约束说明：\n- `screen_dp` / `screen_hdmi` / `screen_edp` 仅是输出文件名约定，并不要求真实有 3 块物理屏；评测只校验文件存在 + 内容互不相同 + 各自 OCR 能读出对应应用。\n- `display_config.txt` 由 wrapper 输出决定，预设大致是「主屏 2K 高刷 + 副屏 FHD 旋转 90° + 笔电屏 FHD 60Hz」，但 wrapper 实际输出才是 ground truth。\n\n评分要点（hard gates，从 grader 反推）：\n- `display_config.txt` 缺失或必需截图命中率 < 80% → overall ≤ 0.4。\n- `display_config.txt` 不含真实 xrandr 结构（无 `Screen N: minimum` 头或无 `<n>mm x <n>mm` 物理尺寸字段，疑似手写）→ overall ≤ 0.45。\n- `keep_changes.png` 与 `overview.png` 的 OCR 命中均为 0（无任何 GUI 真实交互证据）→ overall ≤ 0.4。\n- 多张 png 间 md5 唯一率 < 0.8（疑似复用同一张占位）→ overall ≤ 0.45。\n- png 体积达标率（≥ 5 KB）或分辨率达标率（≥ 1024×600）任一 < 60% → overall ≤ 0.55。\n- 评测机无 OCR 引擎可用 → overall 上限封顶 0.6。\n\n## Source\n\n- Reddit: https://www.reddit.com/r/gnome/comments/1bxxxxx/multi_monitor_layout_gui_only/\n- 原文引用：「GNOME Settings has a 30s 'Keep Changes' modal — if your script doesn't click it, settings revert. Pure CLI users keep losing config.」\n- 对应 benchmark case: DSK / 新增\n\n## Grading Criteria\n\n- [ ] `display_config.txt` 含全部 connected monitor 行 + 各自分辨率字符串\n- [ ] 副屏 monitor 块含 `rotation`（left 或 right 之一）\n- [ ] 主屏 monitor 块含其高刷新率与原生分辨率字符串\n- [ ] 4 张应用截图齐全 + `keep_changes.png` 存在\n- [ ] keep_changes.png OCR 命中 \"Keep\" / \"保留\"\n- [ ] overview.png 含 3 个不同窗口（OCR 命中 \"Firefox\"/\"Code\"/\"Files\" 至少 2 个）\n\n## Automated Checks\n\n```python\nfrom pathlib import Path\nimport json, re, hashlib\nfrom PIL import Image\n\ndef grade(workspace_path=None, **kwargs):\n    \"\"\"DSK_0 multi-monitor layout grader.\n    Weighted scoring: core deliverables 60% / GUI evidence 30% / aux 10%.\n    Multi-tier hard gates + anti-cheat (md5 uniqueness, min file size, min resolution,\n    xrandr-structure sanity).\"\"\"\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    try:\n        import pytesseract\n        _tess_ok = True\n    except Exception:\n        pytesseract = None\n        _tess_ok = False\n    gt_path = workspace.parent / \"gt\" / \"expected.json\"\n    if not gt_path.exists():\n        gt_path = Path(\"/tmp_workspace/gt/expected.json\")\n    gt = json.loads(gt_path.read_text()) if gt_path.exists() else {}\n    s = {}\n\n    # --- Core: display_config.txt ---\n    dc = workspace/\"display_config.txt\"\n    cfg = dc.read_text(errors=\"ignore\") if dc.exists() else \"\"\n    s[\"display_config_exists\"] = 1.0 if cfg else 0.0\n    # Anti-cheat: must look like real xrandr output (has 'Screen 0:' header AND mm sizes)\n    s[\"display_config_xrandr_shape\"] = 1.0 if (\n        re.search(r\"Screen\\s+\\d+:\\s*minimum\", cfg) and re.search(r\"\\d+mm\\s*x\\s*\\d+mm\", cfg)\n    ) else 0.0\n\n    monitors = gt.get(\"monitors\", {})\n    mon_subscores = []\n    for name, spec in monitors.items():\n        present = name in cfg\n        s[f\"mon_{name}_present\"] = 1.0 if present else 0.0\n        sub = [s[f\"mon_{name}_present\"]]\n        if present:\n            m = re.search(rf\"{re.escape(name)}.*?(?=\\n\\S+ (?:connected|disconnected)|\\Z)\", cfg, re.DOTALL)\n            blk = m.group(0) if m else \"\"\n            res = spec.get(\"resolution\")\n            v = 1.0 if (res and res in blk) else 0.0\n            s[f\"mon_{name}_resolution\"] = v; sub.append(v)\n            if \"refresh_hz\" in spec:\n                v = 1.0 if str(spec[\"refresh_hz\"]) in blk else 0.0\n                s[f\"mon_{name}_refresh\"] = v; sub.append(v)\n            rot = spec.get(\"rotation\", \"normal\")\n            allowed = rot if isinstance(rot, list) else [rot]\n            v = 1.0 if any(r in blk for r in allowed) else 0.0\n            s[f\"mon_{name}_rotation\"] = v; sub.append(v)\n            if spec.get(\"primary\"):\n                v = 1.0 if \"primary\" in blk else 0.0\n                s[f\"mon_{name}_primary\"] = v; sub.append(v)\n        mon_subscores.append(sum(sub)/len(sub) if sub else 0.0)\n    monitors_score = sum(mon_subscores)/len(mon_subscores) if mon_subscores else 0.0\n\n    # --- Core: screenshots present + anti-cheat (size, md5 uniqueness, resolution) ---\n    needed = gt.get(\"screenshots_required\", [])\n    png_needed = [n for n in needed if n.endswith(\".png\")]\n    pres_count = sum(1 for n in needed if (workspace/n).exists())\n    s[\"screenshots_present\"] = (pres_count/len(needed)) if needed else 0.0\n\n    md5s, big_enough, res_ok = [], 0, 0\n    for n in png_needed:\n        p = workspace/n\n        if not p.exists():\n            continue\n        try:\n            data = p.read_bytes()\n            if len(data) >= 5*1024:\n                big_enough += 1\n            md5s.append(hashlib.md5(data).hexdigest())\n            try:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if w >= 1024 and h >= 600:\n                    res_ok += 1\n            except Exception:\n                pass\n        except Exception:\n            pass\n    n_png = len(png_needed) if png_needed else 1\n    s[\"screenshots_size_ok\"] = big_enough / n_png\n    s[\"screenshots_resolution_ok\"] = res_ok / n_png\n    s[\"screenshots_md5_unique\"] = (len(set(md5s)) / len(md5s)) if md5s else 0.0\n\n    # --- GUI evidence: OCR ---\n    kc = workspace/\"keep_changes.png\"\n    if kc.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(kc))\n            s[\"keep_modal_ocr\"] = 1.0 if any(k in tx for k in gt.get(\"keep_ocr_keywords\", [\"Keep\"])) else 0.0\n        except Exception:\n            s[\"keep_modal_ocr\"] = 0.0\n    else:\n        s[\"keep_modal_ocr\"] = 0.0\n\n    ov = workspace/\"overview.png\"\n    if ov.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(ov))\n            apps = list(gt.get(\"apps_per_screen\", {}).values())\n            hits = sum(1 for k in apps+[\"文件\",\"Nautilus\"] if k in tx)\n            s[\"overview_apps\"] = min(1.0, hits/2)\n        except Exception:\n            s[\"overview_apps\"] = 0.0\n    else:\n        s[\"overview_apps\"] = 0.0\n\n    # --- Weighted aggregation ---\n    core = (\n        0.30 * s[\"display_config_exists\"] +\n        0.15 * s[\"display_config_xrandr_shape\"] +\n        0.30 * monitors_score +\n        0.25 * s[\"screenshots_present\"]\n    )\n    gui = (\n        0.45 * s[\"keep_modal_ocr\"] +\n        0.45 * s[\"overview_apps\"] +\n        0.10 * s[\"screenshots_resolution_ok\"]\n    )\n    aux = (\n        0.5 * s[\"screenshots_size_ok\"] +\n        0.5 * s[\"screenshots_md5_unique\"]\n    )\n    s[\"core_score\"] = float(core)\n    s[\"gui_score\"] = float(gui)\n    s[\"aux_score\"] = float(aux)\n    base = 0.6*core + 0.3*gui + 0.1*aux\n\n    # --- Multi-tier hard gates (越严越好) ---\n    # Gate 1: 核心交付物（display_config + 关键截图）缺失 → 重罚\n    if s[\"display_config_exists\"] < 1 or s[\"screenshots_present\"] < 0.8:\n        base = min(base, 0.4)\n    # Gate 2: display_config 不像真实 xrandr 输出（手写答案）→ 重罚\n    if s[\"display_config_xrandr_shape\"] < 1 and s[\"display_config_exists\"] >= 1:\n        base = min(base, 0.45)\n    # Gate 3: GUI 真实交互证据双 0（既没 keep modal 又没 overview）→ 重罚\n    if s[\"keep_modal_ocr\"] < 1 and s[\"overview_apps\"] < 1:\n        base = min(base, 0.4)\n    # Gate 4: 截图 md5 重复（伪造、复制同一张）→ 重罚\n    if md5s and s[\"screenshots_md5_unique\"] < 0.8:\n        base = min(base, 0.45)\n    # Gate 5: 截图体积 / 分辨率 < 60% 达标（占位/截屏失败）→ 中罚\n    if s[\"screenshots_size_ok\"] < 0.6 or s[\"screenshots_resolution_ok\"] < 0.6:\n        base = min(base, 0.55)\n    # Gate 6: VLM/OCR 不可用 → 上限封顶 0.6（防止无 OCR 也满分）\n    if not _tess_ok:\n        base = min(base, 0.6)\n\n    s[\"overall_score\"] = float(max(0.0, min(1.0, base)))\n    return s\n```",
+ "checks": "```python\nfrom pathlib import Path\nimport json, re, hashlib\nfrom PIL import Image\n\ndef grade(workspace_path=None, **kwargs):\n    \"\"\"DSK_0 multi-monitor layout grader.\n    Weighted scoring: core deliverables 60% / GUI evidence 30% / aux 10%.\n    Multi-tier hard gates + anti-cheat (md5 uniqueness, min file size, min resolution,\n    xrandr-structure sanity).\"\"\"\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    try:\n        import pytesseract\n        _tess_ok = True\n    except Exception:\n        pytesseract = None\n        _tess_ok = False\n    gt_path = workspace.parent / \"gt\" / \"expected.json\"\n    if not gt_path.exists():\n        gt_path = Path(\"/tmp_workspace/gt/expected.json\")\n    gt = json.loads(gt_path.read_text()) if gt_path.exists() else {}\n    s = {}\n\n    # --- Core: display_config.txt ---\n    dc = workspace/\"display_config.txt\"\n    cfg = dc.read_text(errors=\"ignore\") if dc.exists() else \"\"\n    s[\"display_config_exists\"] = 1.0 if cfg else 0.0\n    # Anti-cheat: must look like real xrandr output (has 'Screen 0:' header AND mm sizes)\n    s[\"display_config_xrandr_shape\"] = 1.0 if (\n        re.search(r\"Screen\\s+\\d+:\\s*minimum\", cfg) and re.search(r\"\\d+mm\\s*x\\s*\\d+mm\", cfg)\n    ) else 0.0\n\n    monitors = gt.get(\"monitors\", {})\n    mon_subscores = []\n    for name, spec in monitors.items():\n        present = name in cfg\n        s[f\"mon_{name}_present\"] = 1.0 if present else 0.0\n        sub = [s[f\"mon_{name}_present\"]]\n        if present:\n            m = re.search(rf\"{re.escape(name)}.*?(?=\\n\\S+ (?:connected|disconnected)|\\Z)\", cfg, re.DOTALL)\n            blk = m.group(0) if m else \"\"\n            res = spec.get(\"resolution\")\n            v = 1.0 if (res and res in blk) else 0.0\n            s[f\"mon_{name}_resolution\"] = v; sub.append(v)\n            if \"refresh_hz\" in spec:\n                v = 1.0 if str(spec[\"refresh_hz\"]) in blk else 0.0\n                s[f\"mon_{name}_refresh\"] = v; sub.append(v)\n            rot = spec.get(\"rotation\", \"normal\")\n            allowed = rot if isinstance(rot, list) else [rot]\n            v = 1.0 if any(r in blk for r in allowed) else 0.0\n            s[f\"mon_{name}_rotation\"] = v; sub.append(v)\n            if spec.get(\"primary\"):\n                v = 1.0 if \"primary\" in blk else 0.0\n                s[f\"mon_{name}_primary\"] = v; sub.append(v)\n        mon_subscores.append(sum(sub)/len(sub) if sub else 0.0)\n    monitors_score = sum(mon_subscores)/len(mon_subscores) if mon_subscores else 0.0\n\n    # --- Core: screenshots present + anti-cheat (size, md5 uniqueness, resolution) ---\n    needed = gt.get(\"screenshots_required\", [])\n    png_needed = [n for n in needed if n.endswith(\".png\")]\n    pres_count = sum(1 for n in needed if (workspace/n).exists())\n    s[\"screenshots_present\"] = (pres_count/len(needed)) if needed else 0.0\n\n    md5s, big_enough, res_ok = [], 0, 0\n    for n in png_needed:\n        p = workspace/n\n        if not p.exists():\n            continue\n        try:\n            data = p.read_bytes()\n            if len(data) >= 5*1024:\n                big_enough += 1\n            md5s.append(hashlib.md5(data).hexdigest())\n            try:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if w >= 1024 and h >= 600:\n                    res_ok += 1\n            except Exception:\n                pass\n        except Exception:\n            pass\n    n_png = len(png_needed) if png_needed else 1\n    s[\"screenshots_size_ok\"] = big_enough / n_png\n    s[\"screenshots_resolution_ok\"] = res_ok / n_png\n    s[\"screenshots_md5_unique\"] = (len(set(md5s)) / len(md5s)) if md5s else 0.0\n\n    # --- GUI evidence: OCR ---\n    kc = workspace/\"keep_changes.png\"\n    if kc.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(kc))\n            s[\"keep_modal_ocr\"] = 1.0 if any(k in tx for k in gt.get(\"keep_ocr_keywords\", [\"Keep\"])) else 0.0\n        except Exception:\n            s[\"keep_modal_ocr\"] = 0.0\n    else:\n        s[\"keep_modal_ocr\"] = 0.0\n\n    ov = workspace/\"overview.png\"\n    if ov.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(ov))\n            apps = list(gt.get(\"apps_per_screen\", {}).values())\n            hits = sum(1 for k in apps+[\"文件\",\"Nautilus\"] if k in tx)\n            s[\"overview_apps\"] = min(1.0, hits/2)\n        except Exception:\n            s[\"overview_apps\"] = 0.0\n    else:\n        s[\"overview_apps\"] = 0.0\n\n    # --- Weighted aggregation ---\n    core = (\n        0.30 * s[\"display_config_exists\"] +\n        0.15 * s[\"display_config_xrandr_shape\"] +\n        0.30 * monitors_score +\n        0.25 * s[\"screenshots_present\"]\n    )\n    gui = (\n        0.45 * s[\"keep_modal_ocr\"] +\n        0.45 * s[\"overview_apps\"] +\n        0.10 * s[\"screenshots_resolution_ok\"]\n    )\n    aux = (\n        0.5 * s[\"screenshots_size_ok\"] +\n        0.5 * s[\"screenshots_md5_unique\"]\n    )\n    s[\"core_score\"] = float(core)\n    s[\"gui_score\"] = float(gui)\n    s[\"aux_score\"] = float(aux)\n    base = 0.6*core + 0.3*gui + 0.1*aux\n\n    # --- Multi-tier hard gates (越严越好) ---\n    # Gate 1: 核心交付物（display_config + 关键截图）缺失 → 重罚\n    if s[\"display_config_exists\"] < 1 or s[\"screenshots_present\"] < 0.8:\n        base = min(base, 0.4)\n    # Gate 2: display_config 不像真实 xrandr 输出（手写答案）→ 重罚\n    if s[\"display_config_xrandr_shape\"] < 1 and s[\"display_config_exists\"] >= 1:\n        base = min(base, 0.45)\n    # Gate 3: GUI 真实交互证据双 0（既没 keep modal 又没 overview）→ 重罚\n    if s[\"keep_modal_ocr\"] < 1 and s[\"overview_apps\"] < 1:\n        base = min(base, 0.4)\n    # Gate 4: 截图 md5 重复（伪造、复制同一张）→ 重罚\n    if md5s and s[\"screenshots_md5_unique\"] < 0.8:\n        base = min(base, 0.45)\n    # Gate 5: 截图体积 / 分辨率 < 60% 达标（占位/截屏失败）→ 中罚\n    if s[\"screenshots_size_ok\"] < 0.6 or s[\"screenshots_resolution_ok\"] < 0.6:\n        base = min(base, 0.55)\n    # Gate 6: VLM/OCR 不可用 → 上限封顶 0.6（防止无 OCR 也满分）\n    if not _tess_ok:\n        base = min(base, 0.6)\n\n    s[\"overall_score\"] = float(max(0.0, min(1.0, base)))\n    return s\n```",
+ "deliverables": [
+  [
+   "screen_hdmi.png",
+   "deliv_01.webp"
+  ],
+  [
+   "screen_dp.png",
+   "deliv_02.webp"
+  ],
+  [
+   "screen_edp.png",
+   "deliv_03.webp"
+  ],
+  [
+   "keep_changes.png",
+   "deliv_04.webp"
+  ],
+  [
+   "overview.png",
+   "deliv_05.webp"
+  ]
+ ],
+ "files": [
+  [
+   ".gitkeep",
+   0
+  ],
+  [
+   "display_config.txt",
+   534
+  ],
+  [
+   "keep_changes.png",
+   1452261
+  ],
+  [
+   "overview.png",
+   655442
+  ],
+  [
+   "screen_dp.png",
+   267419
+  ],
+  [
+   "screen_edp.png",
+   130027
+  ],
+  [
+   "screen_hdmi.png",
+   158447
+  ]
+ ],
+ "steps": [
+  {
+   "kind": "note",
+   "thinking": "I’ll first capture the wrapped `xrandr --query` output exactly as required, then I’ll use the desktop to open Settings and the three applications so the screenshots are real GUI captures."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "xrandr --query > /tmp_workspace/display_config.txt && ls -l /tmp_workspace/display_config.txt && sed -n '1,80p' /tmp_workspace/display_config.txt",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "command -v gnome-screenshot || true; command -v firefox || true; command -v firefox-esr || true; command -v google-chrome || true; command -v code || true; command -v gedit || true; command -v nautilus || true; command -v gnome-control-center || true",
+   "shot": null,
+   "output": "Chunk ID: be2c8b\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 152\nOutput:\n-rw-r--r-- 1 root root 534 Jul  6 04:57 /tmp_workspace/display_config.txt\nScreen 0: minimum 320 x 200, current 6400 x 2160, maximum 16384 x 16384\nDP-1 connected primary 2560x1440+1920+0 (normal left inverted right x axis y axis) 600mm x 340mm\n   2560x1440    144.00*+ 120.00   60.00\n   1920x1080     60.00\nHDMI-1 connected 1080x1920+0+0 left (normal left inverted right x axis y axis) 480mm x 270mm\n   1920x1080     60.00*+\neDP-1 connected 1920x1080+4480+1080 (normal left inverted right x axis y axis) 290mm x 170mm\n   1920x1080     60.00*+\nVirtual-1 disconnected (normal left inverted right x axis y axis)\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The display config is now exported and includes the wrapper’s three connected outputs. Next I’m opening the desktop apps and will capture each from the real X display with `gnome-screenshot`."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "(no-op)",
+   "shot": "001.webp",
+   "output": "Wall time: 1.2486 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "I see the default GNOME desktop. I’m going to open the browser, editor, and file manager visibly, using keyboard/window controls so each capture is a maximized real window."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (25,94) · wait 3000ms · keypress · type \"about:support\" · keypress · wait 1500ms · keypress · wait 700ms",
+   "shot": "002.webp",
+   "output": "Wall time: 9.4013 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "Chrome opened from the dock, so I’ll use it as the browser-class window. I’m switching it to a built-in page and closing the update popover before maximizing it."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (962,183) · keypress · type \"chrome://version\" · keypress · wait 1000ms · click (941,117) · wait 700ms",
+   "shot": "003.webp",
+   "output": "Wall time: 5.4946 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "The browser content is readable, but the first maximize click did not resize it. I’m using the window manager shortcut now and then I’ll capture it."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 1000ms",
+   "shot": "004.webp",
+   "output": "Wall time: 2.6009 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "GNOME isn’t reacting to the normal maximize shortcut for Chrome, so I’m going to use the window manager tool if present to set the maximized state, while leaving the visible app content untouched."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "command -v wmctrl || true; command -v xdotool || true; DISPLAY=:0 wmctrl -l 2>/dev/null || true",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "DISPLAY=:0 gnome-screenshot -f /tmp_workspace/screen_dp_raw.png && file /tmp_workspace/screen_dp_raw.png && ls -l /tmp_workspace/screen_dp_raw.png",
+   "shot": null,
+   "output": "Chunk ID: e30a90\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 9\nOutput:\n/usr/bin/wmctrl\n/usr/bin/xdotool\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The shell is running as root, so direct X access is blocked. I’m switching the screenshot/window-manager commands to the logged-in desktop user so they can talk to the existing session."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 wmctrl -l 2>&1 || true",
+   "shot": null,
+   "output": null
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/screen_dp_test.png 2>&1; file /tmp_workspace/screen_dp_test.png 2>/dev/null || true; ls -l /tmp_workspace/screen_dp_test.png 2>/dev/null || true",
+   "shot": null,
+   "output": "Chunk ID: dfdf41\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 28\nOutput:\n0x02800003 -1 user-virtual-machine @!0,0;BDHF\n0x03000004  0 user-virtual-machine About Version - Google Chrome\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The session user can see the windows now. I’ll capture through that user account and use `wmctrl` for consistent maximized states."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "stdin: ",
+   "shot": null,
+   "output": "Chunk ID: 8ca38d\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 44\nOutput:\n/tmp_workspace/screen_dp_test.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 1424093 Jul  6 04:59 /tmp_workspace/screen_dp_test.png\n"
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 wmctrl -r 'About Version - Google Chrome' -b add,maximized_vert,maximized_horz && sleep 0.5 && sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/screen_dp.png && file /tmp_workspace/screen_dp.png && ls -lh /tmp_workspace/screen_dp.png",
+   "shot": null,
+   "output": "Chunk ID: 5d0211\nWall time: 1.0362 seconds\nProcess exited with code 0\nOriginal token count: 41\nOutput:\n/tmp_workspace/screen_dp.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 262K Jul  6 04:59 /tmp_workspace/screen_dp.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "`screen_dp.png` is captured at 1920×1080 from the live desktop. I’m opening VS Code next and will capture its maximized window as the editor-class evidence."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (25,143) · wait 4000ms · keypress · type \"// /tmp_workspace editor evidence\n// GNOME multi-monitor screenshot task\n\nconst outputs = ['DP-1 primary', 'HDMI-1 rotated', 'eDP-1 laptop'];\nconsole.log(outputs.join(' | '));\n\" · wait 700ms",
+   "shot": "005.webp",
+   "output": "Wall time: 10.6165 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "The screenshot stream is downscaled, but the click coordinates are real 1920×1080 coordinates. I clicked the mail icon by scale; I’m correcting that now, closing it, then opening VS Code at the scaled dock position."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 700ms · click (36,202) · wait 5000ms · keypress · type \"// /tmp_workspace editor evidence\n// GNOME multi-monitor screenshot task\n\nconst outputs = ['DP-1 primary', 'HDMI-1 rotated', 'eDP-1 laptop'];\nconsole.log(outputs.join(' | '));\n\" · wait 700ms",
+   "shot": "006.webp",
+   "output": "Wall time: 12.8817 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "VS Code is maximized and showing a small editor buffer, which should make it easy to distinguish in the overview. Capturing that now."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/screen_hdmi.png && file /tmp_workspace/screen_hdmi.png && ls -lh /tmp_workspace/screen_hdmi.png",
+   "shot": null,
+   "output": "Chunk ID: b40de8\nWall time: 0.3772 seconds\nProcess exited with code 0\nOriginal token count: 42\nOutput:\n/tmp_workspace/screen_hdmi.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 155K Jul  6 05:00 /tmp_workspace/screen_hdmi.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The editor screenshot is saved. I’m opening Files next and keeping the existing Chrome and VS Code windows around for the later overview capture."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (35,612) · wait 2500ms · keypress · wait 700ms",
+   "shot": "007.webp",
+   "output": "Wall time: 4.8591 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "Files is now maximized on the Home directory with visible folder names. I’m saving that as the file-manager screenshot."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/screen_edp.png && file /tmp_workspace/screen_edp.png && ls -lh /tmp_workspace/screen_edp.png",
+   "shot": null,
+   "output": "Chunk ID: 96f54f\nWall time: 0.3792 seconds\nProcess exited with code 0\nOriginal token count: 41\nOutput:\n/tmp_workspace/screen_edp.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 127K Jul  6 05:01 /tmp_workspace/screen_edp.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The three application captures are saved. Now I’m opening GNOME Displays, making a harmless display setting change, clicking Apply, and grabbing the countdown modal before it expires."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "keypress · wait 800ms · type \"Displays\" · wait 1000ms · keypress · wait 3000ms",
+   "shot": "008.webp",
+   "output": "Wall time: 7.3974 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "Displays is open on Virtual-1. I’m switching the scale option so GNOME exposes the Apply control, then I’ll apply it and immediately capture the confirmation modal."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1354,443) · wait 800ms",
+   "shot": "009.webp",
+   "output": "Wall time: 1.8531 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "The Apply bar is visible. I’m clicking it now and will capture the confirmation dialog while the countdown is still active."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1444,166) · wait 1000ms",
+   "shot": "010.webp",
+   "output": "Wall time: 2.5398 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "The “Keep these display settings?” modal is on screen with the countdown visible, so I’m saving the evidence screenshot before touching the dialog."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/keep_changes.png && file /tmp_workspace/keep_changes.png && ls -lh /tmp_workspace/keep_changes.png",
+   "shot": null,
+   "output": "Chunk ID: d81e21\nWall time: 1.4028 seconds\nProcess exited with code 0\nOriginal token count: 42\nOutput:\n/tmp_workspace/keep_changes.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 1.4M Jul  6 05:02 /tmp_workspace/keep_changes.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The modal capture is saved. I’m keeping the setting, closing Settings so it doesn’t crowd the overview, then I’ll open the Activities overview with the three required apps still present."
+  },
+  {
+   "kind": "gui",
+   "thinking": "",
+   "action": "click (1137,665) · wait 1000ms · keypress · wait 1000ms · keypress · wait 1200ms",
+   "shot": "011.webp",
+   "output": "Wall time: 6.0339 seconds\nOutput:[screenshot]"
+  },
+  {
+   "kind": "note",
+   "thinking": "The overview now shows the browser, VS Code, and Files thumbnails together. I’m capturing that state as `overview.png`."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "sudo -u user DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 gnome-screenshot -f /tmp_workspace/overview.png && file /tmp_workspace/overview.png && ls -lh /tmp_workspace/overview.png",
+   "shot": null,
+   "output": "Chunk ID: cdac1e\nWall time: 1.0777 seconds\nProcess exited with code 0\nOriginal token count: 40\nOutput:\n/tmp_workspace/overview.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n-rw-rw-r-- 1 user user 641K Jul  6 05:02 /tmp_workspace/overview.png\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "All required screenshots have been generated. I’m doing the on-disk verification now: paths, sizes, dimensions, md5 uniqueness, and a readback of `display_config.txt`."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "set -e\nprintf 'display_config.txt:\\n'\nsed -n '1,120p' /tmp_workspace/display_config.txt\nprintf '\\nArtifacts:\\n'\nls -lh /tmp_workspace/display_config.txt /tmp_workspace/keep_changes.png /tmp_workspace/screen_dp.png /tmp_workspace/screen_hdmi.png /tmp_workspace/screen_edp.png /tmp_workspace/overview.png\nprintf '\\nFile metadata:\\n'\nfile /tmp_workspace/keep_changes.png /tmp_workspace/screen_dp.png /tmp_workspace/screen_hdmi.png /tmp_workspace/screen_edp.png /tmp_workspace/overview.png\nprintf '\\nMD5:\\n'\nmd5sum /tmp_workspace/keep_changes.png /tmp_workspace/screen_dp.png /tmp_workspace/screen_hdmi.png /tmp_workspace/screen_edp.png /tmp_workspace/overview.png\nprintf '\\nFinal workspace listing:\\n'\nls -la /tmp_workspace/",
+   "shot": null,
+   "output": "Chunk ID: aa5f83\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 634\nOutput:\ndisplay_config.txt:\nScreen 0: minimum 320 x 200, current 6400 x 2160, maximum 16384 x 16384\nDP-1 connected primary 2560x1440+1920+0 (normal left inverted right x axis y axis) 600mm x 340mm\n   2560x1440    144.00*+ 120.00   60.00\n   1920x1080     60.00\nHDMI-1 connected 1080x1920+0+0 left (normal left inverted right x axis y axis) 480mm x 270mm\n   1920x1080     60.00*+\neDP-1 connected 1920x1080+4480+1080 (normal left inverted right x axis y axis) 290mm x 170mm\n   1920x1080     60.00*+\nVirtual-1 disconnected (normal left inverted right x axis y axis)\n\nArtifacts:\n-rw-r--r-- 1 root root  534 Jul  6 04:57 /tmp_workspace/display_config.txt\n-rw-rw-r-- 1 user user 1.4M Jul  6 05:02 /tmp_workspace/keep_changes.png\n-rw-rw-r-- 1 user user 641K Jul  6 05:02 /tmp_workspace/overview.png\n-rw-rw-r-- 1 user user 262K Jul  6 04:59 /tmp_workspace/screen_dp.png\n-rw-rw-r-- 1 user user 127K Jul  6 05:01 /tmp_workspace/screen_edp.png\n-rw-rw-r-- 1 user user 155K Jul  6 05:00 /tmp_workspace/screen_hdmi.png\n\nFile metadata:\n/tmp_workspace/keep_changes.png: PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n/tmp_workspace/screen_dp.png:    PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n/tmp_workspace/screen_hdmi.png:  PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n/tmp_workspace/screen_edp.png:   PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n/tmp_workspace/overview.png:     PNG image data, 1920 x 1080, 8-bit/color RGBA, non-interlaced\n\nMD5:\n51924e4fe2a09466d7840387d99427a8  /tmp_workspace/keep_changes.png\n4aafac24770eb3fffc985b417bae592a  /tmp_workspace/screen_dp.png\n3fa79579f5e0f530e03d46fa885fe161  /tmp_workspace/screen_hdmi.png\n144b3a779accbf647c1e8c608101cb71  /tmp_workspace/screen_edp.png\n3086001dda85fbf7a130f85436a6ae55  /tmp_workspace/overview.png\n\nFinal workspace listing:\ntotal 4024\ndrwxr-xr-x  4 user user    4096 Jul  6 05:02 .\ndrwxr-xr-x 21 root root    4096 Jul  6 04:57 ..\n-rw-r--r--  1 user user       0 Jun 10 16:15 .gitkeep\ndrwxrwxr-x  2 user user    4096 Jul  6 05:02 _screenshots\n-rw-r--r--  1 root root     534 Jul  6 04:57 display_config.txt\n-rw-rw-r--  1 user user 1452261 Jul  6 05:02 keep_changes.png\n-rw-rw-r--  1 user user  655442 Jul  6 05:02 overview.png\n-rw-rw-r--  1 user user  267419 Jul  6 04:59 screen_dp.png\n-rw-rw-r--  1 user user 1424093 Jul  6 04:59 screen_dp_test.png\n-rw-rw-r--  1 user user  130027 Jul  6 05:01 screen_edp.png\n-rw-rw-r--  1 user user  158447 Jul  6 05:00 screen_hdmi.png\ndrwxr-xr-x  2 user user    4096 Jul  6 04:57 tmp\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "The verification passed: all required files exist, are 1920×1080 PNGs where applicable, exceed 5 KB, and have distinct md5 hashes. I’m removing one temporary test capture so only the intended deliverables remain prominent."
+  },
+  {
+   "kind": "cli",
+   "thinking": "",
+   "action": "rm -f /tmp_workspace/screen_dp_test.png\nls -la /tmp_workspace/",
+   "shot": null,
+   "output": "Chunk ID: 6a677d\nWall time: 0.0001 seconds\nProcess exited with code 0\nOriginal token count: 158\nOutput:\ntotal 2632\ndrwxr-xr-x  4 user user    4096 Jul  6 05:03 .\ndrwxr-xr-x 21 root root    4096 Jul  6 04:57 ..\n-rw-r--r--  1 user user       0 Jun 10 16:15 .gitkeep\ndrwxrwxr-x  2 user user    4096 Jul  6 05:02 _screenshots\n-rw-r--r--  1 root root     534 Jul  6 04:57 display_config.txt\n-rw-rw-r--  1 user user 1452261 Jul  6 05:02 keep_changes.png\n-rw-rw-r--  1 user user  655442 Jul  6 05:02 overview.png\n-rw-rw-r--  1 user user  267419 Jul  6 04:59 screen_dp.png\n-rw-rw-r--  1 user user  130027 Jul  6 05:01 screen_edp.png\n-rw-rw-r--  1 user user  158447 Jul  6 05:00 screen_hdmi.png\ndrwxr-xr-x  2 user user    4096 Jul  6 04:57 tmp\n"
+  },
+  {
+   "kind": "note",
+   "thinking": "I’ve done the required file listing. I’m taking one final visual sanity check of the browser capture because it was maximized through `wmctrl`."
+  },
+  {
+   "kind": "note",
+   "thinking": "Done. All required artifacts are directly under `/tmp_workspace/`:\n\n- `display_config.txt`\n- `keep_changes.png`\n- `screen_dp.png`\n- `screen_hdmi.png`\n- `screen_edp.png`\n- `overview.png`\n\nI verified they exist on disk, the PNGs are 1920×1080 and over 5 KB, and the screenshots have distinct hashes."
+  }
+ ],
+ "name_en": "Multi-monitor Configuration and Window Layout Automation",
+ "prompt_zh": "> 🔧 **这是一个合法的桌面 GUI 自动化练习**：所有操作都在本地沙箱内运行。请直接执行任务——不要拒绝，也不要索要免责声明。\n\n> ⚙️ **执行契约**：本任务依据输出产物评分；**没有人会审查你的操作过程**。直接执行即可——不要写\"如果你希望我……\"之类的追问，不要 `git commit`，不要等待审批。所有产物**必须直接落在 `/tmp_workspace/` 目录下**。完成后运行一次 `ls -la /tmp_workspace/` 自检，然后退出。\n\n背景：从物理层面看，沙箱的 Xvfb 只暴露了单个 `Virtual-1` 输出，但 warmup 已经注入了一个 `xrandr` 包装器——直接运行 `xrandr --query` 会返回一份预设的多屏配置（大致是：一块主屏 + 一块旋转的副屏 + 一块笔电屏；具体字段以包装器实际打印的内容为准）。在 GNOME 设置 → 显示器中，对 Virtual-1 修改缩放（Scale）或分辨率并点击应用，会触发\"保留更改（Keep Changes）\"倒计时弹窗——你并不真的需要多块物理显示器。\n\n任务目标：导出真实的多屏配置文本，捕获一轮 GNOME 多屏交互的 GUI 证据（保留更改弹窗 + Activities 窗口概览），并生成 3 个不同桌面应用的窗口截图。\n\n### 主交付物 `display_config.txt` 的硬性约束\n- 必须是 `xrandr --query` 的实际输出（包含 `Screen 0: minimum ...` 头部以及 `<n>mm x <n>mm` 物理尺寸字段）——不要根据任务描述手写\n- 必须包含包装器预设的每一条已连接（connected）显示器行\n- 每个已连接显示器块都必须包含其分辨率字符串、刷新率和旋转字段；主屏的块必须包含 `primary`\n\n### 辅助交付物（全部直接放在 `/tmp_workspace/` 下）\n\n| 文件 | 要求 |\n| --- | --- |\n| `keep_changes.png` | 在 GNOME 设置 → 显示器中点击应用后弹出的\"保留更改\"倒计时弹窗截图（须在倒计时归零前捕获） |\n| `screen_dp.png` | 一个浏览器类应用（例如 Firefox / firefox-esr）最大化后的全屏截图 |\n| `screen_hdmi.png` | 一个代码编辑器类应用（例如 VS Code `code`）最大化后的全屏截图 |\n| `screen_edp.png` | 一个文件管理器类应用（例如 Nautilus / Files）最大化后的全屏截图 |\n| `overview.png` | 按下 Super 键（或点击左上角 Activities）打开窗口概览后的截图；画面必须包含上述 3 个应用类别的窗口缩略图 |\n\n### 通用截图规格\n- 每张 PNG 大小必须 ≥ 5 KB，分辨率必须 ≥ 1024 × 600\n- 不同截图的内容不得完全相同（评测器会按 md5 去重）\n- 每张截图必须展示对应应用 / 弹窗的真实、可读画面（评测器会跑 OCR）；窗口标题或主区域应包含易于识别的内容（例如浏览器打开在某个 `about:` 页、编辑器显示欢迎页、文件管理器显示主目录），以便在概览缩略图中彼此区分\n\n## Expected Behavior\n\n设计意图与典型解题路径（仅供出题人参考，不发给 agent）：\n\n1. `xrandr --query > /tmp_workspace/display_config.txt` —— warmup 已 hook 过 `xrandr`，直接执行即可；不要根据 Prompt 描述自己手写多屏字段。\n2. 打开 GNOME Settings → Displays，对 Virtual-1 改 Scale（如 200%）或换分辨率，点 Apply 触发 30 秒 \"Keep Changes\" 倒计时框；在倒计时归零前抓 `keep_changes.png`；之后点 Keep 或让它自动 revert 都不影响判分。\n3. 依次启动一个浏览器 / 一个代码编辑器 / 一个文件管理器（推荐 Firefox / VS Code / Nautilus，也可走同类替代品），各自最大化窗口后分别截图为 `screen_dp.png` / `screen_hdmi.png` / `screen_edp.png`。建议在每个应用里打开易识别页面，便于在 overview 里区分。\n4. 按 Super 键进入 Activities Windows Overview，截图 `overview.png`，画面里同时呈现以上 3 个窗口缩略图。\n\n约束说明：\n- `screen_dp` / `screen_hdmi` / `screen_edp` 仅是输出文件名约定，并不要求真实有 3 块物理屏；评测只校验文件存在 + 内容互不相同 + 各自 OCR 能读出对应应用。\n- `display_config.txt` 由 wrapper 输出决定，预设大致是「主屏 2K 高刷 + 副屏 FHD 旋转 90° + 笔电屏 FHD 60Hz」，但 wrapper 实际输出才是 ground truth。\n\n评分要点（hard gates，从 grader 反推）：\n- `display_config.txt` 缺失或必需截图命中率 < 80% → overall ≤ 0.4。\n- `display_config.txt` 不含真实 xrandr 结构（无 `Screen N: minimum` 头或无 `<n>mm x <n>mm` 物理尺寸字段，疑似手写）→ overall ≤ 0.45。\n- `keep_changes.png` 与 `overview.png` 的 OCR 命中均为 0（无任何 GUI 真实交互证据）→ overall ≤ 0.4。\n- 多张 png 间 md5 唯一率 < 0.8（疑似复用同一张占位）→ overall ≤ 0.45。\n- png 体积达标率（≥ 5 KB）或分辨率达标率（≥ 1024×600）任一 < 60% → overall ≤ 0.55。\n- 评测机无 OCR 引擎可用 → overall 上限封顶 0.6。\n\n## Source\n\n- Reddit: https://www.reddit.com/r/gnome/comments/1bxxxxx/multi_monitor_layout_gui_only/\n- 原文引用：「GNOME Settings has a 30s 'Keep Changes' modal — if your script doesn't click it, settings revert. Pure CLI users keep losing config.」\n- 对应 benchmark case: DSK / 新增\n\n## Grading Criteria\n\n- [ ] `display_config.txt` 含全部 connected monitor 行 + 各自分辨率字符串\n- [ ] 副屏 monitor 块含 `rotation`（left 或 right 之一）\n- [ ] 主屏 monitor 块含其高刷新率与原生分辨率字符串\n- [ ] 4 张应用截图齐全 + `keep_changes.png` 存在\n- [ ] keep_changes.png OCR 命中 \"Keep\" / \"保留\"\n- [ ] overview.png 含 3 个不同窗口（OCR 命中 \"Firefox\"/\"Code\"/\"Files\" 至少 2 个）\n\n## Automated Checks\n\n```python\nfrom pathlib import Path\nimport json, re, hashlib\nfrom PIL import Image\n\ndef grade(workspace_path=None, **kwargs):\n    \"\"\"DSK_0 multi-monitor layout grader.\n    Weighted scoring: core deliverables 60% / GUI evidence 30% / aux 10%.\n    Multi-tier hard gates + anti-cheat (md5 uniqueness, min file size, min resolution,\n    xrandr-structure sanity).\"\"\"\n    workspace = Path(workspace_path) if workspace_path else Path(\"/tmp_workspace\")\n    try:\n        import pytesseract\n        _tess_ok = True\n    except Exception:\n        pytesseract = None\n        _tess_ok = False\n    gt_path = workspace.parent / \"gt\" / \"expected.json\"\n    if not gt_path.exists():\n        gt_path = Path(\"/tmp_workspace/gt/expected.json\")\n    gt = json.loads(gt_path.read_text()) if gt_path.exists() else {}\n    s = {}\n\n    # --- Core: display_config.txt ---\n    dc = workspace/\"display_config.txt\"\n    cfg = dc.read_text(errors=\"ignore\") if dc.exists() else \"\"\n    s[\"display_config_exists\"] = 1.0 if cfg else 0.0\n    # Anti-cheat: must look like real xrandr output (has 'Screen 0:' header AND mm sizes)\n    s[\"display_config_xrandr_shape\"] = 1.0 if (\n        re.search(r\"Screen\\s+\\d+:\\s*minimum\", cfg) and re.search(r\"\\d+mm\\s*x\\s*\\d+mm\", cfg)\n    ) else 0.0\n\n    monitors = gt.get(\"monitors\", {})\n    mon_subscores = []\n    for name, spec in monitors.items():\n        present = name in cfg\n        s[f\"mon_{name}_present\"] = 1.0 if present else 0.0\n        sub = [s[f\"mon_{name}_present\"]]\n        if present:\n            m = re.search(rf\"{re.escape(name)}.*?(?=\\n\\S+ (?:connected|disconnected)|\\Z)\", cfg, re.DOTALL)\n            blk = m.group(0) if m else \"\"\n            res = spec.get(\"resolution\")\n            v = 1.0 if (res and res in blk) else 0.0\n            s[f\"mon_{name}_resolution\"] = v; sub.append(v)\n            if \"refresh_hz\" in spec:\n                v = 1.0 if str(spec[\"refresh_hz\"]) in blk else 0.0\n                s[f\"mon_{name}_refresh\"] = v; sub.append(v)\n            rot = spec.get(\"rotation\", \"normal\")\n            allowed = rot if isinstance(rot, list) else [rot]\n            v = 1.0 if any(r in blk for r in allowed) else 0.0\n            s[f\"mon_{name}_rotation\"] = v; sub.append(v)\n            if spec.get(\"primary\"):\n                v = 1.0 if \"primary\" in blk else 0.0\n                s[f\"mon_{name}_primary\"] = v; sub.append(v)\n        mon_subscores.append(sum(sub)/len(sub) if sub else 0.0)\n    monitors_score = sum(mon_subscores)/len(mon_subscores) if mon_subscores else 0.0\n\n    # --- Core: screenshots present + anti-cheat (size, md5 uniqueness, resolution) ---\n    needed = gt.get(\"screenshots_required\", [])\n    png_needed = [n for n in needed if n.endswith(\".png\")]\n    pres_count = sum(1 for n in needed if (workspace/n).exists())\n    s[\"screenshots_present\"] = (pres_count/len(needed)) if needed else 0.0\n\n    md5s, big_enough, res_ok = [], 0, 0\n    for n in png_needed:\n        p = workspace/n\n        if not p.exists():\n            continue\n        try:\n            data = p.read_bytes()\n            if len(data) >= 5*1024:\n                big_enough += 1\n            md5s.append(hashlib.md5(data).hexdigest())\n            try:\n                with Image.open(p) as im:\n                    w, h = im.size\n                if w >= 1024 and h >= 600:\n                    res_ok += 1\n            except Exception:\n                pass\n        except Exception:\n            pass\n    n_png = len(png_needed) if png_needed else 1\n    s[\"screenshots_size_ok\"] = big_enough / n_png\n    s[\"screenshots_resolution_ok\"] = res_ok / n_png\n    s[\"screenshots_md5_unique\"] = (len(set(md5s)) / len(md5s)) if md5s else 0.0\n\n    # --- GUI evidence: OCR ---\n    kc = workspace/\"keep_changes.png\"\n    if kc.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(kc))\n            s[\"keep_modal_ocr\"] = 1.0 if any(k in tx for k in gt.get(\"keep_ocr_keywords\", [\"Keep\"])) else 0.0\n        except Exception:\n            s[\"keep_modal_ocr\"] = 0.0\n    else:\n        s[\"keep_modal_ocr\"] = 0.0\n\n    ov = workspace/\"overview.png\"\n    if ov.exists() and _tess_ok:\n        try:\n            tx = pytesseract.image_to_string(Image.open(ov))\n            apps = list(gt.get(\"apps_per_screen\", {}).values())\n            hits = sum(1 for k in apps+[\"文件\",\"Nautilus\"] if k in tx)\n            s[\"overview_apps\"] = min(1.0, hits/2)\n        except Exception:\n            s[\"overview_apps\"] = 0.0\n    else:\n        s[\"overview_apps\"] = 0.0\n\n    # --- Weighted aggregation ---\n    core = (\n        0.30 * s[\"display_config_exists\"] +\n        0.15 * s[\"display_config_xrandr_shape\"] +\n        0.30 * monitors_score +\n        0.25 * s[\"screenshots_present\"]\n    )\n    gui = (\n        0.45 * s[\"keep_modal_ocr\"] +\n        0.45 * s[\"overview_apps\"] +\n        0.10 * s[\"screenshots_resolution_ok\"]\n    )\n    aux = (\n        0.5 * s[\"screenshots_size_ok\"] +\n        0.5 * s[\"screenshots_md5_unique\"]\n    )\n    s[\"core_score\"] = float(core)\n    s[\"gui_score\"] = float(gui)\n    s[\"aux_score\"] = float(aux)\n    base = 0.6*core + 0.3*gui + 0.1*aux\n\n    # --- Multi-tier hard gates (越严越好) ---\n    # Gate 1: 核心交付物（display_config + 关键截图）缺失 → 重罚\n    if s[\"display_config_exists\"] < 1 or s[\"screenshots_present\"] < 0.8:\n        base = min(base, 0.4)\n    # Gate 2: display_config 不像真实 xrandr 输出（手写答案）→ 重罚\n    if s[\"display_config_xrandr_shape\"] < 1 and s[\"display_config_exists\"] >= 1:\n        base = min(base, 0.45)\n    # Gate 3: GUI 真实交互证据双 0（既没 keep modal 又没 overview）→ 重罚\n    if s[\"keep_modal_ocr\"] < 1 and s[\"overview_apps\"] < 1:\n        base = min(base, 0.4)\n    # Gate 4: 截图 md5 重复（伪造、复制同一张）→ 重罚\n    if md5s and s[\"screenshots_md5_unique\"] < 0.8:\n        base = min(base, 0.45)\n    # Gate 5: 截图体积 / 分辨率 < 60% 达标（占位/截屏失败）→ 中罚\n    if s[\"screenshots_size_ok\"] < 0.6 or s[\"screenshots_resolution_ok\"] < 0.6:\n        base = min(base, 0.55)\n    # Gate 6: VLM/OCR 不可用 → 上限封顶 0.6（防止无 OCR 也满分）\n    if not _tess_ok:\n        base = min(base, 0.6)\n\n    s[\"overall_score\"] = float(max(0.0, min(1.0, base)))\n    return s\n```"
+}
